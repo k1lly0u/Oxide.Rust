@@ -1,93 +1,34 @@
-﻿using Network;
-using Oxide.Core;
-using Oxide.Core.Configuration;
-using Oxide.Core.Libraries.Covalence;
-using Oxide.Core.Plugins;
-using Oxide.Core.RemoteConsole;
-using Oxide.Core.ServerConsole;
+using Network;
+using Rust.Ai;
+using Rust.Ai.HTN;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
-using System.Reflection;
 using System.Text.RegularExpressions;
+using uMod.Configuration;
+using uMod.Libraries.Universal;
+using uMod.Plugins;
+using uMod.RemoteConsole;
+using UnityEngine;
 
-namespace Oxide.Game.Rust
+namespace uMod.Rust
 {
     /// <summary>
     /// Game hooks and wrappers for the core Rust plugin
     /// </summary>
-    public partial class RustCore
+    public partial class Rust
     {
         internal bool isPlayerTakingDamage;
         internal static string ipPattern = @":{1}[0-9]{1}\d*";
 
-        #region Server Hooks
+        #region Modifications
 
-        /// <summary>
-        /// Called when ServerConsole is disabled
-        /// </summary>
-        /// <returns></returns>
-        [HookMethod("IOnDisableServerConsole")]
-        private object IOnDisableServerConsole() => ConsoleWindow.Check(true) && !Interface.Oxide.CheckConsole(true) ? (object)null : false;
-
-        /// <summary>
-        /// Called when ServerConsole is enabled
-        /// </summary>
-        /// <returns></returns>
-        [HookMethod("IOnEnableServerConsole")]
-        private object IOnEnableServerConsole(ServerConsole serverConsole)
-        {
-            if (!ConsoleWindow.Check(true) || Interface.Oxide.CheckConsole(true))
-            {
-                serverConsole.enabled = false;
-                UnityEngine.Object.Destroy(serverConsole);
-                typeof(SingletonComponent<ServerConsole>).GetField("instance", BindingFlags.NonPublic | BindingFlags.Static)?.SetValue(null, null);
-                return false;
-            }
-
-            return null;
-        }
-
-        /// <summary>
-        /// Called when a remote console command is received
-        /// </summary>
-        /// <returns></returns>
-        /// <param name="sender"></param>
-        /// <param name="command"></param>
-        [HookMethod("IOnRconCommand")]
-        private object IOnRconCommand(IPEndPoint sender, string command)
-        {
-            if (sender != null && !string.IsNullOrEmpty(command))
-            {
-                RemoteMessage message = RemoteMessage.GetMessage(command);
-                if (message != null)
-                {
-                    string[] fullCommand = CommandLine.Split(message.Message);
-                    string cmd = fullCommand[0].ToLower();
-                    string[] args = fullCommand.Skip(1).ToArray();
-
-                    object callHook = Interface.CallHook("OnRconCommand", sender, cmd, args);
-                    if (callHook != null)
-                    {
-                        return true;
-                    }
-                }
-            }
-
-            return null;
-        }
-
-        /// <summary>
-        /// Called when the remote console is initialized
-        /// </summary>
-        /// <returns></returns>
+        // Disable native RCON if custom RCON is enabled
         [HookMethod("IOnRconInitialize")]
-        private object IOnRconInitialize() => Interface.Oxide.Config.Rcon.Enabled ? (object)true : null;
+        private object IOnRconInitialize() => Interface.uMod.Config.Rcon.Enabled ? (object)true : null;
 
-        /// <summary>
-        /// Called when the command-line is ran
-        /// </summary>
-        /// <returns></returns>
+        // Set default values for command-line arguments and hide output
         [HookMethod("IOnRunCommandLine")]
         private object IOnRunCommandLine()
         {
@@ -104,7 +45,43 @@ namespace Oxide.Game.Rust
                 options.PrintOutput = false;
                 ConsoleSystem.Run(options, str, value);
             }
-            return false;
+            return true;
+        }
+
+        #endregion Modifications
+
+        #region Server Hooks
+
+        /// <summary>
+        /// Called when a remote console command is received
+        /// </summary>
+        /// <returns></returns>
+        /// <param name="sender"></param>
+        /// <param name="command"></param>
+        [HookMethod("IOnRconCommand")]
+        private object IOnRconCommand(IPEndPoint sender, string command)
+        {
+            if (sender != null && !string.IsNullOrEmpty(command))
+            {
+                RemoteMessage message = RemoteMessage.GetMessage(command);
+                if (!string.IsNullOrEmpty(message?.Message))
+                {
+                    string[] fullCommand = CommandLine.Split(message.Message);
+                    if (fullCommand.Length >= 1)
+                    {
+                        string cmd = fullCommand[0].ToLower();
+                        string[] args = fullCommand.Skip(1).ToArray();
+
+                        // Call universal hook
+                        if (Interface.CallHook("OnRconCommand", sender, cmd, args) != null)
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
+
+            return null;
         }
 
         /// <summary>
@@ -115,12 +92,41 @@ namespace Oxide.Game.Rust
         [HookMethod("IOnServerCommand")]
         private object IOnServerCommand(ConsoleSystem.Arg arg)
         {
-            return arg?.cmd.FullName != "chat.say" ? Interface.CallHook("OnServerCommand", arg) : null;
+            if (arg == null || arg.Connection != null && arg.Player() == null)
+            {
+                return true; // Ignore console commands from client during connection
+            }
+
+            if (arg.cmd.FullName == "chat.say")
+            {
+                return null; // Skip chat commands, those are handled elsewhere
+            }
+
+            IPlayer player = arg.Player()?.IPlayer;
+            if (player != null)
+            {
+                return Interface.CallHook("OnPlayerCommand", player, arg.cmd.FullName, arg.Args);
+            }
+
+            return Interface.CallHook("OnServerCommand", arg.cmd.FullName, arg.Args);
         }
 
         #endregion Server Hooks
 
         #region Player Hooks
+
+        /// <summary>
+        /// Called when a player attempts to pickup a DoorCloser entity
+        /// </summary>
+        /// <param name="player"></param>
+        /// <param name="entity"></param>
+        /// <returns></returns>
+        [HookMethod("ICanPickupEntity")]
+        private object ICanPickupEntity(BasePlayer player, DoorCloser entity)
+        {
+            object callHook = Interface.CallHook("CanPickupEntity", player, entity);
+            return callHook is bool result && result ? (object)true : null;
+        }
 
         /// <summary>
         /// Called when a BasePlayer is attacked
@@ -179,11 +185,16 @@ namespace Oxide.Game.Rust
             if (serverInitialized)
             {
                 string id = steamId.ToString();
-                IPlayer iplayer = Covalence.PlayerManager.FindPlayerById(id);
+                IPlayer player = Universal.PlayerManager.FindPlayerById(id);
                 if (group == ServerUsers.UserGroup.Banned)
                 {
-                    Interface.CallHook("OnPlayerBanned", name, steamId, iplayer?.Address ?? "0", reason);
-                    Interface.CallHook("OnUserBanned", name, id, iplayer?.Address ?? "0", reason);
+                    // Call universal hooks
+                    if (player != null)
+                    {
+                        Interface.CallHook("OnPlayerBanned", player, reason);
+                    }
+                    Interface.CallHook("OnPlayerBanned", name, id, player?.Address ?? "0", reason);
+                    Interface.CallDeprecatedHook("OnUserBanned", "OnPlayerBanned", new DateTime(2018, 07, 01), name, id, player?.Address ?? "0", reason);
                 }
             }
         }
@@ -198,11 +209,16 @@ namespace Oxide.Game.Rust
             if (serverInitialized)
             {
                 string id = steamId.ToString();
-                IPlayer iplayer = Covalence.PlayerManager.FindPlayerById(id);
+                IPlayer player = Universal.PlayerManager.FindPlayerById(id);
                 if (ServerUsers.Is(steamId, ServerUsers.UserGroup.Banned))
                 {
-                    Interface.CallHook("OnPlayerUnbanned", iplayer?.Name ?? "Unnamed", steamId, iplayer?.Address ?? "0");
-                    Interface.CallHook("OnUserUnbanned", iplayer?.Name ?? "Unnamed", id, iplayer?.Address ?? "0");
+                    // Call universal hooks
+                    if (player != null)
+                    {
+                        Interface.CallHook("OnPlayerUnbanned", player);
+                    }
+                    Interface.CallHook("OnPlayerUnbanned", player?.Name ?? "Unnamed", id, player?.Address ?? "0");
+                    Interface.CallDeprecatedHook("OnUserUnbanned", "OnPlayerUnbanned", new DateTime(2018, 07, 01), player?.Name ?? "Unnamed", id, player?.Address ?? "0");
                 }
             }
         }
@@ -215,45 +231,51 @@ namespace Oxide.Game.Rust
         [HookMethod("IOnUserApprove")]
         private object IOnUserApprove(Connection connection)
         {
-            string name = connection.username;
-            string id = connection.userid.ToString();
-            string ip = Regex.Replace(connection.ipaddress, ipPattern, "");
-            uint authLevel = connection.authLevel;
+            string username = connection.username;
+            string userId = connection.userid.ToString();
+            string ipAddress = Regex.Replace(connection.ipaddress, ipPattern, "");
 
-            // Update player's permissions group and name
             if (permission.IsLoaded)
             {
-                permission.UpdateNickname(id, name);
+                // Update player's stored username
+                permission.UpdateNickname(userId, username);
 
-                OxideConfig.DefaultGroups defaultGroups = Interface.Oxide.Config.Options.DefaultGroups;
-
-                if (!permission.UserHasGroup(id, defaultGroups.Players))
+                // Set default groups, if necessary
+                uModConfig.DefaultGroups defaultGroups = Interface.uMod.Config.Options.DefaultGroups;
+                if (!permission.UserHasGroup(userId, defaultGroups.Players))
                 {
-                    permission.AddUserGroup(id, defaultGroups.Players);
+                    permission.AddUserGroup(userId, defaultGroups.Players);
                 }
-
-                if (authLevel == 2 && !permission.UserHasGroup(id, defaultGroups.Administrators))
+                if (connection.authLevel == 2 && !permission.UserHasGroup(userId, defaultGroups.Administrators))
                 {
-                    permission.AddUserGroup(id, defaultGroups.Administrators);
+                    permission.AddUserGroup(userId, defaultGroups.Administrators);
+                }
+                else if (connection.authLevel == 1 && !permission.UserHasGroup(userId, defaultGroups.Moderators))
+                {
+                    permission.AddUserGroup(userId, defaultGroups.Moderators);
                 }
             }
 
-            Covalence.PlayerManager.PlayerJoin(connection.userid, name); // TODO: Handle this automatically
+            // Let universal know
+            Universal.PlayerManager.PlayerJoin(connection.userid, username); // TODO: Handle this automatically
 
-            object loginSpecific = Interface.CallHook("CanClientLogin", connection);
-            object loginCovalence = Interface.CallHook("CanUserLogin", name, id, ip);
-            object canLogin = loginSpecific ?? loginCovalence; // TODO: Fix 'RustCore' hook conflict when both return
-
+            // Call universal hook
+            object loginUniversal = Interface.CallHook("CanPlayerLogin", username, userId, ipAddress);
+            object loginDeprecated = Interface.CallDeprecatedHook("CanUserLogin", "CanPlayerLogin", new DateTime(2018, 07, 01), username, userId, ipAddress);
+            object canLogin = loginUniversal ?? loginDeprecated;
             if (canLogin is string || canLogin is bool && !(bool)canLogin)
             {
-                ConnectionAuth.Reject(connection, canLogin is string ? canLogin.ToString() : lang.GetMessage("ConnectionRejected", this, id));
+                // Reject player with message
+                ConnectionAuth.Reject(connection, canLogin is string ? canLogin.ToString() : lang.GetMessage("ConnectionRejected", this, userId));
                 return true;
             }
 
-            // Call game and covalence hooks
-            object approvedSpecific = Interface.CallHook("OnUserApprove", connection);
-            object approvedCovalence = Interface.CallHook("OnUserApproved", name, id, ip);
-            return approvedSpecific ?? approvedCovalence; // TODO: Fix 'RustCore' hook conflict when both return
+            // Let plugins know
+            Interface.CallHook("OnPlayerApproved", username, userId, ipAddress);
+            Interface.CallDeprecatedHook("OnUserApprove", "OnPlayerApprove", new DateTime(2018, 07, 01), username, userId, ipAddress);
+            Interface.CallDeprecatedHook("OnUserApproved", "OnPlayerApproved", new DateTime(2018, 07, 01), username, userId, ipAddress);
+
+            return null;
         }
 
         /// <summary>
@@ -263,11 +285,17 @@ namespace Oxide.Game.Rust
         [HookMethod("IOnPlayerBanned")]
         private void IOnPlayerBanned(Connection connection)
         {
-            string ip = Regex.Replace(connection.ipaddress, ipPattern, "") ?? "0";
+            string ip = Regex.Replace(connection.ipaddress, ipPattern, "");
             string reason = connection.authStatus ?? "Unknown"; // TODO: Localization
 
-            Interface.CallHook("OnPlayerBanned", connection.username, connection.userid, ip, reason);
-            Interface.CallHook("OnUserBanned", connection.username, connection.userid.ToString(), ip, reason);
+            // Call universal hooks
+            IPlayer player = (connection.player as BasePlayer)?.IPlayer;
+            if (player != null)
+            {
+                Interface.CallHook("OnPlayerBanned", player, reason);
+                Interface.CallDeprecatedHook("OnUserBanned", "OnPlayerBanned", new DateTime(2018, 07, 01), player, reason);
+            }
+            Interface.CallHook("OnPlayerBanned", connection.username, connection.userid.ToString(), ip, reason);
         }
 
         /// <summary>
@@ -278,25 +306,25 @@ namespace Oxide.Game.Rust
         [HookMethod("IOnPlayerChat")]
         private object IOnPlayerChat(ConsoleSystem.Arg arg)
         {
-            // Get the full chat string
-            string str = arg.GetString(0).Trim();
-            if (string.IsNullOrEmpty(str))
+            // Get the full chat message
+            string message = arg.GetString(0).Trim();
+            if (string.IsNullOrEmpty(message))
             {
+                // Ignore if message is empty
                 return true;
             }
 
-            // Get player objects
-            BasePlayer player = arg.Connection.player as BasePlayer;
-            IPlayer iplayer = player?.IPlayer;
-            if (iplayer == null)
+            // Get player object
+            IPlayer player = (arg.Connection.player as BasePlayer)?.IPlayer;
+            if (player != null)
             {
-                return null;
+                // Call universal hook
+                object chatUniversal = Interface.CallHook("OnPlayerChat", player, message);
+                object chatDeprecated = Interface.CallDeprecatedHook("OnUserChat", "OnPlayerChat", new DateTime(2018, 07, 01), player, message);
+                return chatUniversal ?? chatDeprecated;
             }
 
-            // Call game and covalence hooks
-            object chatSpecific = Interface.CallHook("OnPlayerChat", arg);
-            object chatCovalence = Interface.CallHook("OnUserChat", iplayer, str);
-            return chatSpecific ?? chatCovalence; // TODO: Fix 'RustCore' hook conflict when both return
+            return null;
         }
 
         /// <summary>
@@ -307,46 +335,41 @@ namespace Oxide.Game.Rust
         [HookMethod("IOnPlayerCommand")]
         private void IOnPlayerCommand(ConsoleSystem.Arg arg)
         {
-            string str = arg.GetString(0).Trim();
+            string command = arg.GetString(0).Trim();
 
             // Check if it is a chat command
-            if (string.IsNullOrEmpty(str) || str[0] != '/' || str.Length <= 1)
+            if (string.IsNullOrEmpty(command) || command[0] != '/' || command.Length <= 1)
             {
                 return;
             }
 
-            // Parse it
-            string cmd;
-            string[] args;
-            ParseCommand(str.TrimStart('/'), out cmd, out args);
+            ParseCommand(command.TrimStart('/'), out string cmd, out string[] args);
             if (cmd == null)
             {
                 return;
             }
 
-            // Get player objects
-            BasePlayer player = arg.Connection.player as BasePlayer;
-            IPlayer iplayer = player?.IPlayer;
-            if (iplayer == null)
+            // Get universal player object
+            IPlayer player = (arg.Connection.player as BasePlayer)?.IPlayer;
+            if (player == null)
             {
                 return;
             }
 
             // Is the command blocked?
-            object commandSpecific = Interface.CallHook("OnPlayerCommand", arg);
-            object commandCovalence = Interface.CallHook("OnUserCommand", iplayer, cmd, args);
-            if (commandSpecific != null || commandCovalence != null)
+            object commandUniversal = Interface.CallHook("OnPlayerChat", player, cmd, args);
+            object commandDeprecated = Interface.CallDeprecatedHook("OnUserChat", "OnPlayerChat", new DateTime(2018, 07, 01), player, cmd, args);
+            if (commandUniversal != null || commandDeprecated != null)
             {
                 return;
             }
 
             // Is it a valid chat command?
-            if (!Covalence.CommandSystem.HandleChatMessage(iplayer, str) && !cmdlib.HandleChatCommand(player, cmd, args))
+            if (!Universal.CommandSystem.HandleChatMessage(player, command))
             {
-                if (Interface.Oxide.Config.Options.Modded)
+                if (Interface.uMod.Config.Options.Modded)
                 {
-                    iplayer.Reply(string.Format(lang.GetMessage("UnknownCommand", this, iplayer.Id), cmd));
-                    arg.ReplyWith(string.Empty);
+                    player.Reply(string.Format(lang.GetMessage("UnknownCommand", this, player.Id), cmd));
                 }
             }
         }
@@ -354,78 +377,96 @@ namespace Oxide.Game.Rust
         /// <summary>
         /// Called when the player has disconnected
         /// </summary>
-        /// <param name="player"></param>
+        /// <param name="basePlayer"></param>
         /// <param name="reason"></param>
         [HookMethod("OnPlayerDisconnected")]
-        private void OnPlayerDisconnected(BasePlayer player, string reason)
+        private void OnPlayerDisconnected(BasePlayer basePlayer, string reason)
         {
-            IPlayer iplayer = player.IPlayer;
-            if (iplayer != null)
-            {
-                Interface.CallHook("OnUserDisconnected", iplayer, reason);
-            }
+            // Let universal know
+            Universal.PlayerManager.PlayerDisconnected(basePlayer);
 
-            Covalence.PlayerManager.PlayerDisconnected(player);
+            IPlayer player = basePlayer.IPlayer;
+            if (player != null)
+            {
+                // Call universal hook
+                Interface.CallHook("OnPlayerDisconnected", player, reason);
+                Interface.CallDeprecatedHook("OnUserDisconnected", "OnPlayerDisconnected", new DateTime(2018, 07, 01), player, reason);
+            }
         }
 
         /// <summary>
         /// Called when the player has connected
         /// </summary>
-        /// <param name="player"></param>
+        /// <param name="basePlayer"></param>
         [HookMethod("OnPlayerInit")]
-        private void OnPlayerInit(BasePlayer player)
+        private void OnPlayerInit(BasePlayer basePlayer)
         {
-            // Set language for player
-            lang.SetLanguage(player.net.connection.info.GetString("global.language", "en"), player.UserIDString);
-
-            // Let covalence know
-            Covalence.PlayerManager.PlayerConnected(player);
-            IPlayer iplayer = Covalence.PlayerManager.FindPlayerById(player.UserIDString);
-            if (iplayer != null)
+            // Set default language for player if not set
+            if (string.IsNullOrEmpty(lang.GetLanguage(basePlayer.UserIDString)))
             {
-                player.IPlayer = iplayer;
-                Interface.CallHook("OnUserConnected", iplayer);
+                lang.SetLanguage(basePlayer.net.connection.info.GetString("global.language", "en"), basePlayer.UserIDString);
+            }
+
+            // Let universal know
+            Universal.PlayerManager.PlayerConnected(basePlayer);
+
+            IPlayer player = Universal.PlayerManager.FindPlayerById(basePlayer.UserIDString);
+            if (player != null)
+            {
+                // Set IPlayer object on BasePlayer
+                basePlayer.IPlayer = player;
+
+                // Call universal hook
+                Interface.CallHook("OnPlayerConnected", player);
+                Interface.CallDeprecatedHook("OnUserConnected", "OnPlayerConnected", new DateTime(2018, 07, 01), player);
             }
         }
 
         /// <summary>
         /// Called when the player has been kicked
         /// </summary>
-        /// <param name="player"></param>
+        /// <param name="basePlayer"></param>
         /// <param name="reason"></param>
         [HookMethod("OnPlayerKicked")]
-        private void OnPlayerKicked(BasePlayer player, string reason)
+        private void OnPlayerKicked(BasePlayer basePlayer, string reason)
         {
-            IPlayer iplayer = player.IPlayer;
-            if (iplayer != null)
+            IPlayer player = basePlayer.IPlayer;
+            if (player != null)
             {
-                Interface.CallHook("OnUserKicked", player.IPlayer, reason);
+                // Call universal hook
+                Interface.CallHook("OnPlayerKicked", player, reason);
+                Interface.CallDeprecatedHook("OnUserKicked", "OnPlayerKicked", new DateTime(2018, 07, 01), player);
             }
         }
 
         /// <summary>
         /// Called when the player is respawning
         /// </summary>
-        /// <param name="player"></param>
+        /// <param name="basePlayer"></param>
         /// <returns></returns>
         [HookMethod("OnPlayerRespawn")]
-        private object OnPlayerRespawn(BasePlayer player)
+        private object OnPlayerRespawn(BasePlayer basePlayer)
         {
-            IPlayer iplayer = player.IPlayer;
-            return iplayer != null ? Interface.CallHook("OnUserRespawn", iplayer) : null;
+            // Call universal hook
+            IPlayer player = basePlayer.IPlayer;
+            object respawnUniversal = Interface.CallHook("OnPlayerRespawn", player);
+            object respawnDeprecated = Interface.CallDeprecatedHook("OnUserRespawn", "OnPlayerRespawn", new DateTime(2018, 07, 01), player);
+            return respawnUniversal ?? respawnDeprecated;
         }
 
         /// <summary>
         /// Called when the player has respawned
         /// </summary>
-        /// <param name="player"></param>
+        /// <param name="basePlayer"></param>
         [HookMethod("OnPlayerRespawned")]
-        private void OnPlayerRespawned(BasePlayer player)
+        private void OnPlayerRespawned(BasePlayer basePlayer)
         {
-            IPlayer iplayer = player.IPlayer;
-            if (iplayer != null)
+            IPlayer player = basePlayer.IPlayer;
+            if (player != null)
             {
-                Interface.CallHook("OnUserRespawned", iplayer);
+                // Call universal hook
+                Interface.CallHook("OnPlayerRespawned", player);
+                Interface.CallDeprecatedHook("OnUserRespawned", "OnPlayerRespawned", new DateTime(2018, 07, 01), player);
             }
         }
 
@@ -446,8 +487,64 @@ namespace Oxide.Game.Rust
             return entity is BasePlayer ? null : Interface.CallHook("OnEntityTakeDamage", entity, info);
         }
 
+        private int GetPlayersSensed(NPCPlayerApex npc, Vector3 position, float distance, BaseEntity[] targetList)
+        {
+            return BaseEntity.Query.Server.GetInSphere(position, distance, targetList,
+                entity =>
+                {
+                    BasePlayer player = entity as BasePlayer;
+                    object callHook = player != null && npc != null && player != npc ? Interface.CallHook("OnNpcPlayerTarget", npc, player) : null;
+                    if (callHook != null)
+                    {
+                        foreach (Memory.SeenInfo seenInfo in npc.AiContext.Memory.All)
+                        {
+                            if (seenInfo.Entity == player)
+                            {
+                                npc.AiContext.Memory.All.Remove(seenInfo);
+                                break;
+                            }
+                        }
+
+                        foreach (Memory.ExtendedInfo extendedInfo in npc.AiContext.Memory.AllExtended)
+                        {
+                            if (extendedInfo.Entity == player)
+                            {
+                                npc.AiContext.Memory.AllExtended.Remove(extendedInfo);
+                                break;
+                            }
+                        }
+                    }
+
+                    return player != null && callHook == null && player.isServer && !player.IsSleeping() && !player.IsDead() && player.Family != npc.Family;
+                });
+        }
+
         /// <summary>
-        /// Called when an NPC player tries to target an entity
+        /// Called when an Apex NPC player tries to target an entity based on closeness
+        /// </summary>
+        /// <param name="npc"></param>
+        /// <returns></returns>
+        [HookMethod("IOnNpcPlayerSenseClose")]
+        private object IOnNpcPlayerSenseClose(NPCPlayerApex npc)
+        {
+            NPCPlayerApex.EntityQueryResultCount = GetPlayersSensed(npc, npc.ServerPosition, npc.Stats.CloseRange, NPCPlayerApex.EntityQueryResults);
+            return true;
+        }
+
+        /// <summary>
+        /// Called when an Apex NPC player tries to target an entity based on vision
+        /// </summary>
+        /// <param name="npc"></param>
+        /// <returns></returns>
+        [HookMethod("IOnNpcPlayerSenseVision")]
+        private object IOnNpcPlayerSenseVision(NPCPlayerApex npc)
+        {
+            NPCPlayerApex.PlayerQueryResultCount = GetPlayersSensed(npc, npc.ServerPosition, npc.Stats.VisionRange, NPCPlayerApex.PlayerQueryResults);
+            return true;
+        }
+
+        /// <summary>
+        /// Called when a Murderer NPC player tries to target an entity
         /// </summary>
         /// <param name="npc"></param>
         /// <param name="target"></param>
@@ -455,21 +552,27 @@ namespace Oxide.Game.Rust
         [HookMethod("IOnNpcPlayerTarget")]
         private object IOnNpcPlayerTarget(NPCPlayerApex npc, BaseEntity target)
         {
-            object callHook = Interface.CallHook("OnNpcPlayerTarget", npc, target);
-            if (callHook != null)
+            if (Interface.CallHook("OnNpcPlayerTarget", npc, target) != null)
             {
-                if (npc is NPCMurderer)
-                {
-                    return 0f;
-                }
+                return 0f;
+            }
 
-                npc.SetFact(NPCPlayerApex.Facts.HasEnemy, 0);
-                npc.SetFact(NPCPlayerApex.Facts.EnemyRange, 5);
-                npc.SetFact(NPCPlayerApex.Facts.AfraidRange, 1);
-                npc.SetFact(NPCPlayerApex.Facts.HasLineOfSight, 0);
-                npc.SetFact(NPCPlayerApex.Facts.HasLineOfSightCrouched, 0);
-                npc.SetFact(NPCPlayerApex.Facts.HasLineOfSightStanding, 0);
-                npc.AiContext.AIAgent.AttackTarget = null;
+            return null;
+        }
+
+        /// <summary>
+        /// Called when an HTN NPC player tries to target an entity
+        /// </summary>
+        /// <param name="npc"></param>
+        /// <param name="target"></param>
+        /// <returns></returns>
+        [HookMethod("IOnHtnNpcPlayerTarget")]
+        private object IOnHtnNpcPlayerTarget(IHTNAgent npc, BasePlayer target)
+        {
+            if (npc != null && Interface.CallHook("OnNpcPlayerTarget", npc.Body, target) != null)
+            {
+                npc.AiDomain.NpcContext.BaseMemory.Forget(0f);
+                npc.AiDomain.NpcContext.BaseMemory.PrimaryKnownEnemyPlayer.PlayerInfo.Player = null;
                 return true;
             }
 
@@ -491,7 +594,7 @@ namespace Oxide.Game.Rust
                 npc.SetFact(BaseNpc.Facts.HasEnemy, 0);
                 npc.SetFact(BaseNpc.Facts.EnemyRange, 3);
                 npc.SetFact(BaseNpc.Facts.AfraidRange, 1);
-                return true;
+                return 0f;
             }
 
             return null;
@@ -510,9 +613,9 @@ namespace Oxide.Game.Rust
         [HookMethod("IOnLoseCondition")]
         private object IOnLoseCondition(Item item, float amount)
         {
-            object[] arguments = { item, amount };
-            Interface.CallHook("OnLoseCondition", arguments);
-            amount = (float)arguments[1];
+            // Call hook for plugins
+            Interface.CallHook("OnLoseCondition", item, amount);
+
             float condition = item.condition;
             item.condition -= amount;
             if (item.condition <= 0f && item.condition < condition)

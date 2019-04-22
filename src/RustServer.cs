@@ -1,24 +1,20 @@
-﻿using Facepunch;
-using Oxide.Core;
-using Oxide.Core.Libraries.Covalence;
+using Facepunch;
+using Rust;
 using System;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Net;
+using uMod.Libraries.Universal;
+using uMod.Logging;
 
-namespace Oxide.Game.Rust.Libraries.Covalence
+namespace uMod.Rust
 {
     /// <summary>
     /// Represents the server hosting the game instance
     /// </summary>
     public class RustServer : IServer
     {
-        #region Initialiation
-
-        internal readonly Server Server = new Server();
-
-        #endregion Initialiation
-
         #region Information
 
         /// <summary>
@@ -31,6 +27,7 @@ namespace Oxide.Game.Rust.Libraries.Covalence
         }
 
         private static IPAddress address;
+        private static IPAddress localAddress;
 
         /// <summary>
         /// Gets the public-facing IP address of the server, if known
@@ -43,17 +40,49 @@ namespace Oxide.Game.Rust.Libraries.Covalence
                 {
                     if (address == null)
                     {
-                        WebClient webClient = new WebClient();
-                        IPAddress.TryParse(webClient.DownloadString("http://api.ipify.org"), out address);
-                        return address;
+                        if (Utility.ValidateIPv4(ConVar.Server.ip) && !Utility.IsLocalIP(ConVar.Server.ip))
+                        {
+                            IPAddress.TryParse(ConVar.Server.ip, out address);
+                            Interface.uMod.LogInfo($"IP address from command-line: {address}");
+                        }
+                        else if (Global.SteamServer != null && Global.SteamServer.IsValid && Global.SteamServer.PublicIp != null)
+                        {
+                            address = Global.SteamServer.PublicIp;
+                            Interface.uMod.LogInfo($"IP address from Steam query: {address}");
+                        }
+                        else
+                        {
+                            WebClient webClient = new WebClient();
+                            IPAddress.TryParse(webClient.DownloadString("http://api.ipify.org"), out address);
+                            Interface.uMod.LogInfo($"IP address from external API: {address}");
+                        }
                     }
 
                     return address;
                 }
                 catch (Exception ex)
                 {
-                    RemoteLogger.Exception("Couldn't get server IP address", ex);
-                    return new IPAddress(0);
+                    RemoteLogger.Exception("Couldn't get server's public IP address", ex);
+                    return IPAddress.Any;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Gets the local IP address of the server, if known
+        /// </summary>
+        public IPAddress LocalAddress
+        {
+            get
+            {
+                try
+                {
+                    return localAddress ?? (localAddress = Utility.GetLocalIP());
+                }
+                catch (Exception ex)
+                {
+                    RemoteLogger.Exception("Couldn't get server's local IP address", ex);
+                    return IPAddress.Any;
                 }
             }
         }
@@ -104,7 +133,7 @@ namespace Oxide.Game.Rust.Libraries.Covalence
         /// <summary>
         /// Gets information on the currently loaded save file
         /// </summary>
-        public SaveInfo SaveInfo { get; } = SaveInfo.Create(SaveRestore.SaveFileName);
+        public SaveInfo SaveInfo { get; } = SaveInfo.Create(World.SaveFileName);
 
         #endregion Information
 
@@ -122,6 +151,8 @@ namespace Oxide.Game.Rust.Libraries.Covalence
             {
                 ServerUsers.Set(ulong.Parse(id), ServerUsers.UserGroup.Banned, Name, reason);
                 ServerUsers.Save();
+
+                // TODO: Implement universal ban storage
             }
         }
 
@@ -143,7 +174,7 @@ namespace Oxide.Game.Rust.Libraries.Covalence
         public void Save()
         {
             ConVar.Server.save(null);
-            File.WriteAllText(string.Concat(ConVar.Server.GetServerFolder("cfg"), "/serverauto.cfg"), ConsoleSystem.SaveToConfigString(true));
+            File.WriteAllText(Path.Combine(ConVar.Server.GetServerFolder("cfg"), "serverauto.cfg"), ConsoleSystem.SaveToConfigString(true));
             ServerUsers.Save();
         }
 
@@ -157,6 +188,8 @@ namespace Oxide.Game.Rust.Libraries.Covalence
             {
                 ServerUsers.Remove(ulong.Parse(id));
                 ServerUsers.Save();
+
+                // TODO: Implement universal ban storage
             }
         }
 
@@ -172,7 +205,13 @@ namespace Oxide.Game.Rust.Libraries.Covalence
         /// <param name="args"></param>
         public void Broadcast(string message, string prefix, params object[] args)
         {
-            Server.Broadcast(message, prefix, 0, args);
+            if (!string.IsNullOrEmpty(message))
+            {
+                ulong avatarId = args.Length > 0 && args[0].IsSteamId() ? (ulong)args[0] : 0ul;
+                message = args.Length > 0 ? string.Format(Formatter.ToUnity(message), avatarId != 0ul ? args.Skip(1) : args) : Formatter.ToUnity(message);
+                string formatted = prefix != null ? $"{prefix}: {message}" : message;
+                ConsoleNetwork.BroadcastToAllClients("chat.add", avatarId, formatted, 1.0);
+            }
         }
 
         /// <summary>
@@ -188,7 +227,7 @@ namespace Oxide.Game.Rust.Libraries.Covalence
         /// <param name="args"></param>
         public void Command(string command, params object[] args)
         {
-            Server.Command(command, args);
+            ConsoleSystem.Run(ConsoleSystem.Option.Server, command, args);
         }
 
         #endregion Chat and Commands

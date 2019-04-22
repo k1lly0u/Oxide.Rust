@@ -1,11 +1,11 @@
-﻿using Oxide.Core.Libraries.Covalence;
+﻿using uMod.Libraries.Universal;
 
-namespace Oxide.Game.Rust.Libraries.Covalence
+namespace uMod.Rust
 {
     /// <summary>
-    /// Provides Covalence functionality for the game "Rust"
+    /// Provides Universal functionality for the game "Rust"
     /// </summary>
-    public class RustCovalenceProvider : ICovalenceProvider
+    public class RustProvider : IUniversalProvider
     {
         /// <summary>
         /// Gets the name of the game for which this provider provides
@@ -25,9 +25,9 @@ namespace Oxide.Game.Rust.Libraries.Covalence
         /// <summary>
         /// Gets the singleton instance of this provider
         /// </summary>
-        internal static RustCovalenceProvider Instance { get; private set; }
+        internal static RustProvider Instance { get; private set; }
 
-        public RustCovalenceProvider()
+        public RustProvider()
         {
             Instance = this;
         }
@@ -40,7 +40,7 @@ namespace Oxide.Game.Rust.Libraries.Covalence
         /// <summary>
         /// Gets the command system provider
         /// </summary>
-        public RustCommandSystem CommandSystem { get; private set; }
+        public RustCommands CommandSystem { get; private set; }
 
         /// <summary>
         /// Creates the game-specific server object
@@ -63,11 +63,10 @@ namespace Oxide.Game.Rust.Libraries.Covalence
         /// Creates the game-specific command system provider object
         /// </summary>
         /// <returns></returns>
-        public ICommandSystem CreateCommandSystemProvider() => CommandSystem = new RustCommandSystem();
+        public ICommandSystem CreateCommandSystemProvider() => CommandSystem = new RustCommands();
 
         /// <summary>
-        /// Formats the text with markup as specified in Oxide.Core.Libraries.Covalence.Formatter
-        /// into the game-specific markup language
+        /// Formats the text with universal markup into game-specific markup
         /// </summary>
         /// <param name="text">text to format</param>
         /// <returns>formatted text</returns>
