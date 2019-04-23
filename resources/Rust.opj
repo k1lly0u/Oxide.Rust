@@ -6,12 +6,12 @@
       "AssemblyName": "Assembly-CSharp.dll",
       "Hooks": [
         {
-          "Type": "InitMod",
+          "Type": "InitOxide",
           "Hook": {
             "InjectionIndex": 31,
-            "HookTypeName": "Initialize uMod",
-            "Name": "InitMod [internal]",
-            "HookName": "InitMod",
+            "HookTypeName": "Initialize Oxide",
+            "Name": "InitOxide [internal]",
+            "HookName": "InitOxide",
             "AssemblyName": "Assembly-CSharp.dll",
             "TypeName": "Bootstrap",
             "Flagged": false,
@@ -730,7 +730,7 @@
                 "Network.Connection"
               ]
             },
-            "MSILHash": "CLVm3l9dDmKTKjBg5oCOgoQ7L6wVil2vnkgJqB6OdwY=",
+            "MSILHash": "MiNENunLRnFAAuvFzFm+p+o+ABgzohUy9CYuAIivq60=",
             "BaseHookName": null,
             "HookCategory": "Player"
           }
@@ -2175,7 +2175,7 @@
               {
                 "OpCode": "ldstr",
                 "OpType": "String",
-                "Operand": ",umod"
+                "Operand": ",oxide"
               },
               {
                 "OpCode": "call",
@@ -2190,22 +2190,22 @@
               {
                 "OpCode": "call",
                 "OpType": "Method",
-                "Operand": "uMod|uMod.Interface|get_uMod"
+                "Operand": "Oxide.Core|Oxide.Core.Interface|get_Oxide"
               },
               {
                 "OpCode": "call",
                 "OpType": "Method",
-                "Operand": "uMod|uMod.uMod|get_Config"
+                "Operand": "Oxide.Core|Oxide.Core.OxideMod|get_Config"
               },
               {
                 "OpCode": "call",
                 "OpType": "Method",
-                "Operand": "uMod|uMod.Configuration.uModConfig|get_Options"
+                "Operand": "Oxide.Core|Oxide.Core.Configuration.OxideConfig|get_Options"
               },
               {
                 "OpCode": "ldfld",
                 "OpType": "Field",
-                "Operand": "uMod|uMod.Configuration.uModConfig/uModOptions|Modded"
+                "Operand": "Oxide.Core|Oxide.Core.Configuration.OxideConfig/OxideOptions|Modded"
               },
               {
                 "OpCode": "brfalse",
@@ -2245,7 +2245,7 @@
               "ReturnType": "System.Void",
               "Parameters": []
             },
-            "MSILHash": "3Hb2wI371ob2C39yx64OrrEUjJKfOBZCqELiESUsxkQ=",
+            "MSILHash": "xVLkwdlwLfYSanUok51cbf/EVDranr/ZHV93mQw12RI=",
             "BaseHookName": null,
             "HookCategory": "_Patches"
           }
@@ -2649,7 +2649,7 @@
                 "Network.Message"
               ]
             },
-            "MSILHash": "IoH41udXxx8MM/4Ax+9sgERAeLWcE9Wj0JgAw550fqc=",
+            "MSILHash": "LISNFM/Zx2cV53mXVgbhqrDXm9pZt6WjuurrRdRvXgw=",
             "BaseHookName": null,
             "HookCategory": "Player"
           }
@@ -3228,7 +3228,7 @@
                 "Item"
               ]
             },
-            "MSILHash": "/8X9ZlwQSrtj5a2OUYdVFUx5PstAwQAeIwnJ+zvOKkE=",
+            "MSILHash": "kEoNyXsZ/Oy734P39m4DcrM7hzp9HDbAg9745ESVuVw=",
             "BaseHookName": null,
             "HookCategory": "Item"
           }
@@ -6906,50 +6906,6 @@
           }
         },
         {
-          "Type": "Modify",
-          "Hook": {
-            "InjectionIndex": 108,
-            "RemoveCount": 0,
-            "Instructions": [
-              {
-                "OpCode": "call",
-                "OpType": "Method",
-                "Operand": "Rust.Global|Rust.Global|get_SteamServer"
-              },
-              {
-                "OpCode": "ldstr",
-                "OpType": "String",
-                "Operand": "description_0"
-              },
-              {
-                "OpCode": "ldsfld",
-                "OpType": "Field",
-                "Operand": "mscorlib|System.String|Empty"
-              },
-              {
-                "OpCode": "callvirt",
-                "OpType": "Method",
-                "Operand": "Facepunch.Steamworks|Facepunch.Steamworks.Server|SetKey"
-              }
-            ],
-            "HookTypeName": "Modify",
-            "Name": "FixDescriptionUpdating [patch]",
-            "HookName": "FixDescriptionUpdating [patch]",
-            "AssemblyName": "Assembly-CSharp.dll",
-            "TypeName": "ServerMgr",
-            "Flagged": true,
-            "Signature": {
-              "Exposure": 0,
-              "Name": "UpdateServerInformation",
-              "ReturnType": "System.Void",
-              "Parameters": []
-            },
-            "MSILHash": "dQnhRUfe7lIh+7JhsTWAFkBFGZ+uaJLnVFnwBKIfLtI=",
-            "BaseHookName": "AddGameTags [patch]",
-            "HookCategory": "_Patches"
-          }
-        },
-        {
           "Type": "Simple",
           "Hook": {
             "InjectionIndex": 8,
@@ -7106,7 +7062,7 @@
               {
                 "OpCode": "call",
                 "OpType": "Method",
-                "Operand": "uMod|uMod.Interface|CallHook(System.String,System.Object,System.Object)"
+                "Operand": "Oxide.Core|Oxide.Core.Interface|CallHook(System.String,System.Object,System.Object)"
               },
               {
                 "OpCode": "ldnull",
@@ -7701,7 +7657,7 @@
         {
           "Type": "Modify",
           "Hook": {
-            "InjectionIndex": 0,
+            "InjectionIndex": 4,
             "RemoveCount": 0,
             "Instructions": [
               {
@@ -7971,6 +7927,63 @@
             "MSILHash": "XAbBUjv9aYi01AmWlvIJ98FqWYe3fbF070HqXQjRTuM=",
             "BaseHookName": "OnPlayerLand",
             "HookCategory": "Player"
+          }
+        },
+        {
+          "Type": "Simple",
+          "Hook": {
+            "InjectionIndex": 12,
+            "ReturnBehavior": 0,
+            "ArgumentBehavior": 4,
+            "ArgumentString": "l0, a0",
+            "HookTypeName": "Simple",
+            "Name": "OnWorldPrefabSpawned",
+            "HookName": "OnWorldPrefabSpawned",
+            "AssemblyName": "Assembly-CSharp.dll",
+            "TypeName": "World",
+            "Flagged": false,
+            "Signature": {
+              "Exposure": 0,
+              "Name": "Spawn",
+              "ReturnType": "System.Void",
+              "Parameters": [
+                "System.String",
+                "System.UInt32",
+                "UnityEngine.Vector3",
+                "UnityEngine.Quaternion",
+                "UnityEngine.Vector3"
+              ]
+            },
+            "MSILHash": "3WG5GI59jmn7KSSui18gYW4m84aEKPye1EwvATFDcXI=",
+            "BaseHookName": null,
+            "HookCategory": "World"
+          }
+        },
+        {
+          "Type": "Simple",
+          "Hook": {
+            "InjectionIndex": 0,
+            "ReturnBehavior": 1,
+            "ArgumentBehavior": 1,
+            "ArgumentString": null,
+            "HookTypeName": "Simple",
+            "Name": "OnGenerateOceanPatrolPath",
+            "HookName": "OnGenerateOceanPatrolPath",
+            "AssemblyName": "Assembly-CSharp.dll",
+            "TypeName": "BaseBoat",
+            "Flagged": false,
+            "Signature": {
+              "Exposure": 2,
+              "Name": "GenerateOceanPatrolPath",
+              "ReturnType": "System.Collections.Generic.List`1<UnityEngine.Vector3>",
+              "Parameters": [
+                "System.Single",
+                "System.Single"
+              ]
+            },
+            "MSILHash": "6w4stUt6n3+3vU3xhEStULnO+GY923iX1oa0EpdPssA=",
+            "BaseHookName": null,
+            "HookCategory": "World"
           }
         }
       ],
@@ -10914,6 +10927,25 @@
             "Parameters": []
           },
           "MSILHash": ""
+        },
+        {
+          "Name": "WorldSetup/<InitCoroutine>d__14",
+          "AssemblyName": "Assembly-CSharp.dll",
+          "TypeName": "WorldSetup/<InitCoroutine>d__14",
+          "Type": 3,
+          "TargetExposure": [
+            0
+          ],
+          "Flagged": false,
+          "Signature": {
+            "Exposure": [
+              0
+            ],
+            "Name": "<InitCoroutine>d__14",
+            "FullTypeName": "WorldSetup/<InitCoroutine>d__14",
+            "Parameters": []
+          },
+          "MSILHash": ""
         }
       ],
       "Fields": [
@@ -10921,7 +10953,7 @@
           "Name": "IPlayer",
           "AssemblyName": "Assembly-CSharp.dll",
           "TypeName": "BasePlayer",
-          "FieldType": "uMod|uMod.Libraries.Universal.IPlayer",
+          "FieldType": "Oxide.Core|Oxide.Core.Libraries.Covalence.IPlayer",
           "Flagged": false
         }
       ]
@@ -11161,32 +11193,6 @@
             ],
             "Name": "cache",
             "FullTypeName": "System.Collections.Generic.Dictionary`2<System.String,UnityEngine.Object> FileSystemBackend::cache",
-            "Parameters": []
-          },
-          "MSILHash": ""
-        }
-      ],
-      "Fields": []
-    },
-    {
-      "AssemblyName": "Facepunch.UnityEngine.dll",
-      "Hooks": [],
-      "Modifiers": [
-        {
-          "Name": "InvokeHandler::curList",
-          "AssemblyName": "Facepunch.UnityEngine.dll",
-          "TypeName": "InvokeHandler",
-          "Type": 0,
-          "TargetExposure": [
-            2
-          ],
-          "Flagged": false,
-          "Signature": {
-            "Exposure": [
-              0
-            ],
-            "Name": "curList",
-            "FullTypeName": "ListDictionary`2<InvokeAction,System.Single> InvokeHandler::curList",
             "Parameters": []
           },
           "MSILHash": ""
