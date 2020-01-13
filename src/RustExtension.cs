@@ -1,20 +1,19 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using Oxide.Core;
+using Oxide.Core.Extensions;
+using Oxide.Core.Unity;
+using Oxide.Plugins;
+using System;
 using System.Linq;
 using System.Reflection;
-using uMod.Extensions;
-using uMod.Plugins;
-using uMod.Unity;
 using UnityEngine;
 
-namespace uMod.Rust
+namespace Oxide.Game.Rust
 {
     /// <summary>
     /// The extension class that represents this extension
     /// </summary>
     public class RustExtension : Extension
     {
-        // Get assembly info
         internal static Assembly Assembly = Assembly.GetExecutingAssembly();
         internal static AssemblyName AssemblyName = Assembly.GetName();
         internal static VersionNumber AssemblyVersion = new VersionNumber(AssemblyName.Version.Major, AssemblyName.Version.Minor, AssemblyName.Version.Build);
@@ -45,20 +44,14 @@ namespace uMod.Rust
         /// </summary>
         public override string Branch => "public"; // TODO: Handle this programmatically
 
-        // Commands that a plugin can't override
-        internal static IEnumerable<string> RestrictedCommands => new[]
-        {
-            "ownerid", "moderatorid", "removeowner", "removemoderator"
-        };
-
         /// <summary>
         /// Default game-specific references for use in plugins
         /// </summary>
         public override string[] DefaultReferences => new[]
         {
-            "ApexAI", "ApexShared", "Facepunch.Network", "Facepunch.Steamworks", "Facepunch.System", "Facepunch.UnityEngine", "NewAssembly", "Rust.Data",
-            "Rust.Global", "Rust.Workshop", "Rust.World", "System.Drawing", "UnityEngine.AIModule", "UnityEngine.AssetBundleModule", "UnityEngine.CoreModule",
-            "UnityEngine.GridModule", "UnityEngine.ImageConversionModule", "UnityEngine.Networking", "UnityEngine.PhysicsModule", "UnityEngine.TerrainModule",
+            "ApexAI", "ApexShared", "Facepunch.Network", "Facepunch.Steamworks.Posix64", "Facepunch.Steamworks.Win64", "Facepunch.System", "Facepunch.UnityEngine", "NewAssembly",
+            "Rust.Data", "Rust.Global", "Rust.Localization", "Rust.Workshop", "Rust.World", "System.Drawing", "UnityEngine.AIModule", "UnityEngine.AssetBundleModule",
+            "UnityEngine.CoreModule", "UnityEngine.GridModule", "UnityEngine.ImageConversionModule", "UnityEngine.Networking", "UnityEngine.PhysicsModule", "UnityEngine.TerrainModule",
             "UnityEngine.TerrainPhysicsModule", "UnityEngine.UI", "UnityEngine.UIModule", "UnityEngine.UIElementsModule", "UnityEngine.UnityWebRequestAudioModule",
             "UnityEngine.UnityWebRequestModule", "UnityEngine.UnityWebRequestTextureModule", "UnityEngine.UnityWebRequestWWWModule", "UnityEngine.VehiclesModule",
             "UnityEngine.WebModule"
@@ -70,7 +63,8 @@ namespace uMod.Rust
         public override string[] WhitelistAssemblies => new[]
         {
             "Assembly-CSharp", "Assembly-CSharp-firstpass", "DestMath", "Facepunch.Network", "Facepunch.System", "Facepunch.UnityEngine", "mscorlib",
-            "uMod", "RustBuild", "Rust.Data", "Rust.Global", "System", "System.Core", "UnityEngine"
+            "Oxide.Core", "Oxide.Rust", /* < Needed for non-C# plugins for some reason */ "RustBuild", "Rust.Data", "Rust.Global", "Rust.Localization",
+            "System", "System.Core", "UnityEngine"
         };
 
         /// <summary>
@@ -78,8 +72,8 @@ namespace uMod.Rust
         /// </summary>
         public override string[] WhitelistNamespaces => new[]
         {
-            "ConVar", "Dest", "Facepunch", "Network", "ProtoBuf", "PVT", "Rust", "Steamworks", "System.Collections", "System.Security.Cryptography",
-            "System.Text", "UnityEngine"
+            "ConVar", "Dest", "Facepunch", "Network", "Oxide.Game.Rust.Cui", "ProtoBuf", "PVT", "Rust", "Steamworks", "System.Collections",
+            "System.Security.Cryptography", "System.Text", "UnityEngine"
         };
 
         /// <summary>
@@ -89,7 +83,6 @@ namespace uMod.Rust
         {
             "alphamapResolution is clamped to the range of",
             "AngryAnt Behave version",
-            "Calling CollectSourcesAsync took",
             "Floating point textures aren't supported on this device",
             "HDR RenderTexture format is not supported on this platform.",
             "Image Effects are not supported on this platform.",
@@ -121,9 +114,17 @@ namespace uMod.Rust
         /// </summary>
         public override void Load()
         {
-            //Manager.RegisterLibrary("Rust", new Libraries.Rust()); // TODO: Deprecate?
-            //Manager.RegisterLibrary("Command", new Libraries.Command()); // TODO: Deprecate?
+            Manager.RegisterLibrary("Rust", new Libraries.Rust());
+            Manager.RegisterLibrary("Command", new Libraries.Command());
+            Manager.RegisterLibrary("Item", new Libraries.Item());
+            Manager.RegisterLibrary("Player", new Libraries.Player());
+            Manager.RegisterLibrary("Server", new Libraries.Server());
             Manager.RegisterPluginLoader(new RustPluginLoader());
+
+            if (Environment.OSVersion.Platform == PlatformID.Unix)
+            {
+                Cleanup.Add("Facepunch.Steamworks.Win64.dll"); // TODO: Remove after a few updates
+            }
         }
 
         /// <summary>
@@ -139,15 +140,15 @@ namespace uMod.Rust
         /// </summary>
         public override void OnModLoad()
         {
-            //Output.OnMessage += HandleLog;
             CSharpPluginLoader.PluginReferences.UnionWith(DefaultReferences);
+            //Facepunch.Output.OnMessage += HandleLog;
         }
 
         private static void HandleLog(string message, string stackTrace, LogType logType)
         {
             if (!string.IsNullOrEmpty(message) && !Filter.Any(message.Contains))
             {
-                Interface.uMod.RootLogger.HandleMessage(message, stackTrace, logType.ToLogType());
+                Interface.Oxide.RootLogger.HandleMessage(message, stackTrace, logType.ToLogType());
             }
         }
     }

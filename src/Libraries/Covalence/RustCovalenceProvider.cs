@@ -1,11 +1,11 @@
-﻿using uMod.Libraries.Universal;
+﻿using Oxide.Core.Libraries.Covalence;
 
-namespace uMod.Rust
+namespace Oxide.Game.Rust.Libraries.Covalence
 {
     /// <summary>
-    /// Provides Universal functionality for the game "Rust"
+    /// Provides Covalence functionality for the game "Rust"
     /// </summary>
-    public class RustProvider : IUniversalProvider
+    public class RustCovalenceProvider : ICovalenceProvider
     {
         /// <summary>
         /// Gets the name of the game for which this provider provides
@@ -25,9 +25,9 @@ namespace uMod.Rust
         /// <summary>
         /// Gets the singleton instance of this provider
         /// </summary>
-        internal static RustProvider Instance { get; private set; }
+        internal static RustCovalenceProvider Instance { get; private set; }
 
-        public RustProvider()
+        public RustCovalenceProvider()
         {
             Instance = this;
         }
@@ -40,7 +40,7 @@ namespace uMod.Rust
         /// <summary>
         /// Gets the command system provider
         /// </summary>
-        public RustCommands CommandSystem { get; private set; }
+        public RustCommandSystem CommandSystem { get; private set; }
 
         /// <summary>
         /// Creates the game-specific server object
@@ -63,10 +63,11 @@ namespace uMod.Rust
         /// Creates the game-specific command system provider object
         /// </summary>
         /// <returns></returns>
-        public ICommandSystem CreateCommandSystemProvider() => CommandSystem = new RustCommands();
+        public ICommandSystem CreateCommandSystemProvider() => CommandSystem = new RustCommandSystem();
 
         /// <summary>
-        /// Formats the text with universal markup into game-specific markup
+        /// Formats the text with markup as specified in Oxide.Core.Libraries.Covalence.Formatter
+        /// into the game-specific markup language
         /// </summary>
         /// <param name="text">text to format</param>
         /// <returns>formatted text</returns>

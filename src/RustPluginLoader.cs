@@ -1,13 +1,13 @@
-﻿using System;
-using uMod.Plugins;
+﻿using Oxide.Core.Plugins;
+using System;
 
-namespace uMod.Rust
+namespace Oxide.Game.Rust
 {
     /// <summary>
-    /// Responsible for loading the core Rust plugin
+    /// Responsible for loading Rust core plugins
     /// </summary>
     public class RustPluginLoader : PluginLoader
     {
-        public override Type[] CorePlugins => new[] { typeof(Rust) };
+        public override Type[] CorePlugins => new[] { typeof(RustCore) };
     }
 }

@@ -2,35 +2,32 @@
 <Project>
   <Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk" />
   <PropertyGroup>
-    <Version>3.0.0</Version>
-    <AssemblyName>uMod.Rust</AssemblyName>
-    <Authors>The uMod Project Team and Contributors</Authors>
-    <Copyright>Copyright (c) 2013-$([System.DateTime]::Now.Year) $(Authors)</Copyright>
-    <Description>Rust game extension for the uMod modding framework</Description>
-    <PackageIconUrl>https://assets.umod.org/images/umod-64.png</PackageIconUrl>
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageProjectUrl>https://umod.org</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/theumod/uMod.Rust</RepositoryUrl>
+    <Version>2.0.0</Version>
+    <AssemblyName>Oxide.Rust</AssemblyName>
+    <Authors>Oxide and Contributors</Authors>
+    <Description>Rust extension for the Oxide modding framework</Description>
+    <RepositoryUrl>https://github.com/OxideMod/Oxide.Rust</RepositoryUrl>
+    <PackageLicenseUrl>https://github.com/OxideMod/Oxide.Rust/blob/develop/LICENSE.md</PackageLicenseUrl>
+    <PackageProjectUrl>https://github.com/OxideMod/Oxide.Rust</PackageProjectUrl>
+    <PackageIconUrl>https://avatars1.githubusercontent.com/u/10712027?s=64</PackageIconUrl>
+    <Copyright>Copyright (c) 2014-$([System.DateTime]::Now.Year) $(Authors)</Copyright>
     <PackageTags>gaming modding plugins unity unity3d</PackageTags>
-    <ThisAssemblyNamespace>$(AssemblyName)</ThisAssemblyNamespace>
+    <TargetFramework>netstandard2.0</TargetFramework>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
-    <TargetFramework>net46</TargetFramework>
     <ManagedDir>RustDedicated_Data\Managed</ManagedDir>
     <SteamAppId>258550</SteamAppId>
     <SteamBranch>public</SteamBranch>
     <SteamLogin>anonymous</SteamLogin>
+    <SteamPlatform>windows;linux</SteamPlatform>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="GitInfo" Version="2.0.*">
-      <PrivateAssets>contentfiles;analyzers;build</PrivateAssets>
-    </PackageReference>
-    <PackageReference Include="Oxide.References" Version="2.0.*">
-      <PrivateAssets>contentfiles;analyzers;build</PrivateAssets>
-    </PackageReference>
-    <PackageReference Include="uMod" Version="3.0.3964-develop" />
-    <!--<PackageReference Include="uMod.MySql" Version="3.0.*" />
-    <PackageReference Include="uMod.SQLite" Version="3.0.*" />-->
-    <PackageReference Include="uMod.Unity" Version="3.0.3765-develop" />
+    <PackageReference Include="GitInfo" Version="2.0.*" />
+    <PackageReference Include="Oxide.References" Version="2.0.*" />
+    <PackageReference Include="Oxide.Core" Version="2.0.*" />
+    <PackageReference Include="Oxide.CSharp" Version="2.0.*" />
+    <PackageReference Include="Oxide.MySql" Version="2.0.*" />
+    <PackageReference Include="Oxide.SQLite" Version="2.0.*" />
+    <PackageReference Include="Oxide.Unity" Version="2.0.*" />
     <Reference Include="Assembly-CSharp">
       <HintPath>Dependencies\Patched\$(SteamBranch)\$(ManagedDir)\Assembly-CSharp.dll</HintPath>
     </Reference>
@@ -46,8 +43,11 @@
     <Reference Include="Facepunch.Rcon">
       <HintPath>Dependencies\Patched\$(SteamBranch)\$(ManagedDir)\Facepunch.Rcon.dll</HintPath>
     </Reference>
-    <Reference Include="Facepunch.Steamworks">
-      <HintPath>Dependencies\Patched\$(SteamBranch)\$(ManagedDir)\Facepunch.Steamworks.dll</HintPath>
+    <Reference Condition="'$(SteamPlatform)' == 'linux'" Include="Facepunch.Steamworks.Posix64">
+      <HintPath>Dependencies\Patched\$(SteamBranch)\$(ManagedDir)\Facepunch.Steamworks.Posix64.dll</HintPath>
+    </Reference>
+    <Reference Condition="'$(SteamPlatform)' != 'linux'" Include="Facepunch.Steamworks.Win64">
+      <HintPath>Dependencies\Patched\$(SteamBranch)\$(ManagedDir)\Facepunch.Steamworks.Win64.dll</HintPath>
     </Reference>
     <Reference Include="Facepunch.System">
       <HintPath>Dependencies\Patched\$(SteamBranch)\$(ManagedDir)\Facepunch.System.dll</HintPath>
@@ -91,15 +91,14 @@
     <Reference Include="websocket-sharp">
       <HintPath>Dependencies\Patched\$(SteamBranch)\$(ManagedDir)\websocket-sharp.dll</HintPath>
     </Reference>
-    <None Remove="Bundle\**; Dependencies\**; Files\**; Patched\**; **\Original\**; *.config; *.opj" />
+    <None Remove="Bundle\**; Files\**; Patched\**; **\Original\**; *.config; *.opj" />
   </ItemGroup>
   <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" />
   <Target Name="Clean">
     <RemoveDir Directories="$(ProjectDir)\bin\Bundle\$(PackageId)" Condition="Exists('$(ProjectDir)\bin\Bundle\$(PackageId)')" />
   </Target>
   <Target Name="BeforeBuild">
-    <!-- Currently only works on Windows due to Windows-only tools used -->
-    <Exec Command="powershell -ExecutionPolicy Bypass &quot;$(SolutionDir)\Steam.ps1&quot; -project $(AssemblyName) -dotnet $(TargetFramework) -appid $(SteamAppId) -branch '$(SteamBranch)' -managed '$(ManagedDir)'" />
+    <Exec Command="powershell -ExecutionPolicy Bypass &quot;$(SolutionDir)\Steam.ps1&quot; -project $(AssemblyName) -managed '$(ManagedDir)' -dotnet $(TargetFramework) -appid $(SteamAppId) -branch $(SteamBranch) -platform $(SteamPlatform.Split(';')[0])" />
   </Target>
   <Target Name="ChangeAliasesOfStrongNameAssemblies" BeforeTargets="FindReferenceAssembliesForReferences;ResolveReferences">
     <ItemGroup>
@@ -110,18 +109,20 @@
   </Target>
   <Target Name="AfterBuild">
     <ItemGroup>
-      <CoreFiles Include="$(TargetDir)\uMod*.dll; $(TargetDir)\Oxide.*.dll" />
-      <PatchedFiles Include="$(ProjectDir)\Dependencies\Base\*.dll" />
+      <CoreFiles Include="$(TargetDir)\Oxide.*.dll" />
       <PatchedFiles Include="$(ProjectDir)\Dependencies\Patched\$(SteamBranch)\$(ManagedDir)\Assembly-CSharp.dll" />
       <PatchedFiles Include="$(ProjectDir)\Dependencies\Patched\$(SteamBranch)\$(ManagedDir)\Facepunch.Console.dll" />
       <PatchedFiles Include="$(ProjectDir)\Dependencies\Patched\$(SteamBranch)\$(ManagedDir)\Facepunch.Rcon.dll" />
       <PatchedFiles Include="$(ProjectDir)\Dependencies\Patched\$(SteamBranch)\$(ManagedDir)\NewAssembly.dll" />
-      <ContentFiles Include="$(SolutionDir)\packages\oxide.references\**\lib\any\$(TargetFramework)\*.*" />
-      <ContentFiles Include="$(SolutionDir)\packages\umod.mysql\**\lib\any\MySql.*.dll; $(SolutionDir)\packages\umod.mysql\**\lib\any\System.*.dll" />
-      <ContentFiles Include="$(SolutionDir)\packages\umod.mysql\**\lib\$(TargetFramework)\*.*" />
-      <ContentFiles Include="$(SolutionDir)\packages\umod.sqlite\**\lib\any\*.*; $(SolutionDir)\packages\umod.sqlite\**\lib\$(TargetFramework)\*.*" />
-      <ContentX64Files Include="$(SolutionDir)\packages\oxide.references\**\lib\any\x64\*.*; $(SolutionDir)\packages\umod.sqlite\**\lib\any\x64\*.*" />
-      <ContentX86Files Include="$(SolutionDir)\packages\oxide.references\**\lib\any\x86\*.*; $(SolutionDir)\packages\umod.sqlite\**\lib\any\x86\*.*" />
+      <ContentFiles Include="$(SolutionDir)\packages\oxide.core\**\lib\net46\*.*" />
+      <ContentFiles Include="$(SolutionDir)\packages\oxide.csharp\**\lib\any\*.*; $(SolutionDir)\packages\oxide.csharp\**\lib\net46\*.*" />
+      <ContentFiles Include="$(SolutionDir)\packages\oxide.references\**\lib\any\net46\*.*; $(SolutionDir)\packages\oxide.references\**\lib\net46\*.*" />
+      <ContentFiles Include="$(SolutionDir)\packages\oxide.unity\**\lib\net35\*.*" />
+      <ContentFiles Include="$(SolutionDir)\packages\oxide.mysql\**\lib\any\MySql.*.dll; $(SolutionDir)\packages\oxide.mysql\**\lib\any\System.*.dll" />
+      <ContentFiles Include="$(SolutionDir)\packages\oxide.mysql\**\lib\net461\*.*" />
+      <ContentFiles Include="$(SolutionDir)\packages\oxide.sqlite\**\lib\any\*.*; $(SolutionDir)\packages\oxide.sqlite\**\lib\net461\*.*" />
+      <ContentX64Files Include="$(SolutionDir)\packages\oxide.references\**\lib\any\x64\*.*; $(SolutionDir)\packages\oxide.sqlite\**\lib\any\x64\*.*" />
+      <ContentX86Files Include="$(SolutionDir)\packages\oxide.references\**\lib\any\x86\*.*; $(SolutionDir)\packages\oxide.sqlite\**\lib\any\x86\*.*" />
     </ItemGroup>
     <Copy SourceFiles="@(CoreFiles)" DestinationFiles="@(CoreFiles->'$(ProjectDir)\bin\Bundle\$(PackageId)\$(ManagedDir)\%(RecursiveDir)%(Filename)%(Extension)')" />
     <Copy SourceFiles="@(PatchedFiles)" DestinationFiles="@(PatchedFiles->'$(ProjectDir)\bin\Bundle\$(PackageId)\$(ManagedDir)\%(RecursiveDir)%(Filename)%(Extension)')" />
@@ -130,15 +131,24 @@
     <Copy SourceFiles="@(ContentX86Files)" DestinationFiles="@(ContentX86Files->'$(ProjectDir)\bin\Bundle\$(PackageId)\$(ManagedDir)\x86\%(Filename)%(Extension)')" />
     <!--<Exec Command="pdb2mdb %(PatchedFiles.Identity)" Condition="'$(Configuration)' == 'Debug' And '$(OS)' == 'Windows_NT'" IgnoreExitCode="true" />-->
   </Target>
-  <Target Name="LocalDeploy" AfterTargets="AfterBuild" Condition="Exists('$(SolutionDir)\.deploy')">
+  <Target Name="LocalDeploy" AfterTargets="AfterBuild" Condition="Exists('$(SolutionDir)\.deploy') And $(SteamPlatform.Contains('windows'))">
     <Exec Command="start /b /wait taskkill /f /im RustDedicated.exe /fi &quot;memusage gt 2&quot;" Condition="'$(OS)' == 'Windows_NT'" />
     <Exec Command="start /b /wait taskkill /f /im Compiler.exe /fi &quot;memusage gt 2&quot;" Condition="'$(OS)' == 'Windows_NT'" />
     <ReadLinesFromFile File="$(SolutionDir)\.deploy">
       <Output PropertyName="DeployPath" TaskParameter="Lines" />
     </ReadLinesFromFile>
+    <PropertyGroup>
+      <DeployPath Condition="!$(SteamBranch.Contains('public'))">$(DeployPath)-$(SteamBranch)</DeployPath>
+    </PropertyGroup>
     <ItemGroup>
       <DeployFiles Include="$(ProjectDir)\bin\Bundle\$(PackageId)\**\*.*" />
     </ItemGroup>
     <Copy Condition="'$(DeployPath)' != ''" SourceFiles="@(DeployFiles)" DestinationFiles="@(DeployFiles->'$(DeployPath)\%(RecursiveDir)%(Filename)%(Extension)')" />
+  </Target>
+  <Target Name="BuildPlatform" AfterTargets="Pack" Condition="$(SteamPlatform.Contains(';'))">
+    <PropertyGroup>
+      <SteamPlatform>$(SteamPlatform.Split(';')[1])</SteamPlatform>
+    </PropertyGroup>
+    <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="Clean;Build" Properties="PackageId=$(AssemblyName)-$(SteamPlatform);SteamPlatform=$(SteamPlatform)" />
   </Target>
 </Project>

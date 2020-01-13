@@ -1,12 +1,13 @@
 ﻿extern alias References;
 
+using Oxide.Core;
+using Oxide.Core.Libraries.Covalence;
 using References::ProtoBuf;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using uMod.Libraries.Universal;
 
-namespace uMod.Rust
+namespace Oxide.Game.Rust.Libraries.Covalence
 {
     /// <summary>
     /// Represents a generic player manager
@@ -23,12 +24,11 @@ namespace uMod.Rust
         private IDictionary<string, PlayerRecord> playerData;
         private IDictionary<string, RustPlayer> allPlayers;
         private IDictionary<string, RustPlayer> connectedPlayers;
-        private const string dataFileName = "umod";
 
         internal void Initialize()
         {
-            // TODO: Migrate/move from oxide.covalence.data to umod.data if SQLite is not used, else migrate to umod.db with SQLite
-            playerData = ProtoStorage.Load<Dictionary<string, PlayerRecord>>(dataFileName) ?? new Dictionary<string, PlayerRecord>();
+            Utility.DatafileToProto<Dictionary<string, PlayerRecord>>("oxide.covalence");
+            playerData = ProtoStorage.Load<Dictionary<string, PlayerRecord>>("oxide.covalence") ?? new Dictionary<string, PlayerRecord>();
             allPlayers = new Dictionary<string, RustPlayer>();
             connectedPlayers = new Dictionary<string, RustPlayer>();
 
@@ -42,7 +42,8 @@ namespace uMod.Rust
         {
             string id = userId.ToString();
 
-            if (playerData.TryGetValue(id, out PlayerRecord record))
+            PlayerRecord record;
+            if (playerData.TryGetValue(id, out record))
             {
                 record.Name = name;
                 playerData[id] = record;
@@ -65,7 +66,7 @@ namespace uMod.Rust
 
         internal void PlayerDisconnected(BasePlayer player) => connectedPlayers.Remove(player.UserIDString);
 
-        internal void SavePlayerData() => ProtoStorage.Save(playerData, dataFileName);
+        internal void SavePlayerData() => ProtoStorage.Save(playerData, "oxide.covalence");
 
         #region Player Finding
 
@@ -73,13 +74,13 @@ namespace uMod.Rust
         /// Gets all players
         /// </summary>
         /// <returns></returns>
-        public IEnumerable<IPlayer> All => allPlayers.Values;
+        public IEnumerable<IPlayer> All => allPlayers.Values.Cast<IPlayer>();
 
         /// <summary>
         /// Gets all connected players
         /// </summary>
         /// <returns></returns>
-        public IEnumerable<IPlayer> Connected => connectedPlayers.Values;
+        public IEnumerable<IPlayer> Connected => connectedPlayers.Values.Cast<IPlayer>();
 
         /// <summary>
         /// Gets all sleeping players
@@ -94,7 +95,8 @@ namespace uMod.Rust
         /// <returns></returns>
         public IPlayer FindPlayerById(string id)
         {
-            return allPlayers.TryGetValue(id, out RustPlayer player) ? player : null;
+            RustPlayer player;
+            return allPlayers.TryGetValue(id, out player) ? player : null;
         }
 
         /// <summary>

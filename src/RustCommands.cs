@@ -1,325 +1,732 @@
-using System;
+﻿using Facepunch;
+using Oxide.Core;
+using Oxide.Core.Libraries.Covalence;
+using Oxide.Core.Plugins;
 using System.Collections.Generic;
 using System.Linq;
-using uMod.Libraries;
-using uMod.Libraries.Universal;
-using uMod.Plugins;
-using UnityEngine;
 
-namespace uMod.Rust
+namespace Oxide.Game.Rust
 {
     /// <summary>
-    /// Represents a binding to a generic command system
+    /// Game commands for the core Rust plugin
     /// </summary>
-    public class RustCommands : ICommandSystem
+    public partial class RustCore
     {
-        #region Initialization
-
-        // The universal provider
-        private readonly RustProvider provider = RustProvider.Instance;
-
-        // The console player
-        private readonly RustConsolePlayer consolePlayer;
-
-        // Command handler
-        private readonly CommandHandler commandHandler;
-
-        // All registered commands
-        internal IDictionary<string, RegisteredCommand> registeredCommands;
-
-        // Registered commands
-        internal class RegisteredCommand
-        {
-            /// <summary>
-            /// The plugin that handles the command
-            /// </summary>
-            public readonly Plugin Source;
-
-            /// <summary>
-            /// The name of the command
-            /// </summary>
-            public readonly string Command;
-
-            /// <summary>
-            /// The callback
-            /// </summary>
-            public readonly CommandCallback Callback;
-
-            /// <summary>
-            /// The original callback
-            /// </summary>
-            public Action<ConsoleSystem.Arg> OriginalCallback;
-
-            /// <summary>
-            /// The Rust console command
-            /// </summary>
-            public ConsoleSystem.Command RustCommand;
-
-            /// <summary>
-            /// The original console command when overridden
-            /// </summary>
-            public ConsoleSystem.Command OriginalRustCommand;
-
-            /// <summary>
-            /// Initializes a new instance of the RegisteredCommand class
-            /// </summary>
-            /// <param name="source"></param>
-            /// <param name="command"></param>
-            /// <param name="callback"></param>
-            public RegisteredCommand(Plugin source, string command, CommandCallback callback)
-            {
-                Source = source;
-                Command = command;
-                Callback = callback;
-            }
-        }
+        #region Grant Command
 
         /// <summary>
-        /// Initializes the command system
+        /// Called when the "grant" command has been executed
         /// </summary>
-        public RustCommands()
-        {
-            registeredCommands = new Dictionary<string, RegisteredCommand>();
-            commandHandler = new CommandHandler(CommandCallback, registeredCommands.ContainsKey);
-            consolePlayer = new RustConsolePlayer();
-        }
-
-        private bool CommandCallback(IPlayer caller, string cmd, string[] args)
-        {
-            return registeredCommands.TryGetValue(cmd, out RegisteredCommand command) && command.Callback(caller, cmd, args);
-        }
-
-        #endregion Initialization
-
-        #region Command Registration
-
-        /// <summary>
-        /// Registers the specified command
-        /// </summary>
+        /// <param name="player"></param>
         /// <param name="command"></param>
-        /// <param name="plugin"></param>
-        /// <param name="callback"></param>
-        public void RegisterCommand(string command, Plugin plugin, CommandCallback callback)
+        /// <param name="args"></param>
+        [HookMethod("GrantCommand")]
+        private void GrantCommand(IPlayer player, string command, string[] args)
         {
-            // Convert command to lowercase and remove whitespace
-            command = command.ToLowerInvariant().Trim();
-
-            // Split console command parts
-            string[] split = command.Split('.');
-            string parent = split.Length >= 2 ? split[0].Trim() : "global";
-            string name = split.Length >= 2 ? string.Join(".", split.Skip(1).ToArray()) : split[0].Trim();
-            string fullName = $"{parent}.{name}";
-            if (parent == "global")
+            if (!PermissionsLoaded(player))
             {
-                command = name;
+                return;
             }
 
-            // Set up a new universal command
-            RegisteredCommand newCommand = new RegisteredCommand(plugin, command, callback);
-
-            // Check if the command can be overridden
-            if (!CanOverrideCommand(command))
+            if (args.Length < 3)
             {
-                throw new CommandAlreadyExistsException(command);
+                player.Reply(lang.GetMessage("CommandUsageGrant", this, player.Id));
+                return;
             }
 
-            // Check if command already exists in another plugin
-            if (registeredCommands.TryGetValue(command, out RegisteredCommand cmd))
+            string mode = args[0];
+            string name = args[1].Sanitize();
+            string perm = args[2];
+
+            if (!permission.PermissionExists(perm))
             {
-                if (cmd.OriginalCallback != null)
-                {
-                    newCommand.OriginalCallback = cmd.OriginalCallback;
-                }
-
-                string newPluginName = plugin?.Name ?? "An unknown plugin"; // TODO: Localization
-                string previousPluginName = cmd.Source?.Name ?? "an unknown plugin"; // TODO: Localization
-                Interface.uMod.LogWarning($"{newPluginName} has replaced the '{command}' command previously registered by {previousPluginName}"); // TODO: Localization
-
-                ConsoleSystem.Index.Server.Dict.Remove(fullName);
-                if (parent == "global")
-                {
-                    ConsoleSystem.Index.Server.GlobalDict.Remove(name);
-                }
-
-                ConsoleSystem.Index.All = ConsoleSystem.Index.Server.Dict.Values.ToArray();
+                player.Reply(string.Format(lang.GetMessage("PermissionNotFound", this, player.Id), perm));
+                return;
             }
 
-            // Check if command already exists as a native command
-            if (ConsoleSystem.Index.Server.Dict.TryGetValue(fullName, out ConsoleSystem.Command rustCommand))
+            if (mode.Equals("group"))
             {
-                if (rustCommand.Variable)
+                if (!permission.GroupExists(name))
                 {
-                    string newPluginName = plugin?.Name ?? "An unknown plugin"; // TODO: Localization
-                    Interface.uMod.LogError($"{newPluginName} tried to register the {fullName} console variable as a command!"); // TODO: Localization
+                    player.Reply(string.Format(lang.GetMessage("GroupNotFound", this, player.Id), name));
                     return;
                 }
 
-                newCommand.OriginalCallback = rustCommand.Call;
-                newCommand.OriginalRustCommand = rustCommand;
-            }
-
-            // Create a new Rust console command
-            newCommand.RustCommand = new ConsoleSystem.Command
-            {
-                Name = name,
-                Parent = parent,
-                FullName = command,
-                ServerUser = true,
-                ServerAdmin = true,
-                Client = true,
-                ClientInfo = false,
-                Variable = false,
-                Call = arg =>
+                if (permission.GroupHasPermission(name, perm))
                 {
-                    if (arg != null)
-                    {
-                        BasePlayer basePlayer = arg.Player();
-                        if (arg.Connection != null && basePlayer != null)
-                        {
-                            IPlayer player = basePlayer.IPlayer;
-                            if (player != null)
-                            {
-                                player.LastCommand = CommandType.Console;
-                                callback(player, command, ExtractArgs(arg));
-                            }
-                        }
-                        else if (arg.Connection == null)
-                        {
-                            consolePlayer.LastCommand = CommandType.Console;
-                            callback(consolePlayer, command, ExtractArgs(arg));
-                        }
-                    }
+                    player.Reply(string.Format(lang.GetMessage("GroupAlreadyHasPermission", this, player.Id), name, perm));
+                    return;
                 }
-            };
 
-            // Register command as a console command
-            ConsoleSystem.Index.Server.Dict[fullName] = newCommand.RustCommand;
-            if (parent == "global")
-            {
-                ConsoleSystem.Index.Server.GlobalDict[name] = newCommand.RustCommand;
+                permission.GrantGroupPermission(name, perm, null);
+                player.Reply(string.Format(lang.GetMessage("GroupPermissionGranted", this, player.Id), name, perm));
             }
-            ConsoleSystem.Index.All = ConsoleSystem.Index.Server.Dict.Values.ToArray();
+            else if (mode.Equals("user"))
+            {
+                IPlayer[] foundPlayers = Covalence.PlayerManager.FindPlayers(name).ToArray();
+                if (foundPlayers.Length > 1)
+                {
+                    player.Reply(string.Format(lang.GetMessage("PlayersFound", this, player.Id), string.Join(", ", foundPlayers.Select(p => p.Name).ToArray())));
+                    return;
+                }
 
-            // Register command
-            registeredCommands[command] = newCommand;
+                IPlayer target = foundPlayers.Length == 1 ? foundPlayers[0] : null;
+                if (target == null && !permission.UserIdValid(name))
+                {
+                    player.Reply(string.Format(lang.GetMessage("PlayerNotFound", this, player.Id), name));
+                    return;
+                }
+
+                string userId = name;
+                if (target != null)
+                {
+                    userId = target.Id;
+                    name = target.Name;
+                    permission.UpdateNickname(userId, name);
+                }
+
+                if (permission.UserHasPermission(name, perm))
+                {
+                    player.Reply(string.Format(lang.GetMessage("PlayerAlreadyHasPermission", this, player.Id), userId, perm));
+                    return;
+                }
+
+                permission.GrantUserPermission(userId, perm, null);
+                player.Reply(string.Format(lang.GetMessage("PlayerPermissionGranted", this, player.Id), $"{name} ({userId})", perm));
+            }
+            else
+            {
+                player.Reply(lang.GetMessage("CommandUsageGrant", this, player.Id));
+            }
         }
 
-        #endregion Command Registration
+        #endregion Grant Command
 
-        #region Command Unregistration
+        // TODO: GrantAllCommand (grant all permissions from user(s)/group(s))
+
+        #region Group Command
 
         /// <summary>
-        /// Unregisters the specified command
+        /// Called when the "group" command has been executed
         /// </summary>
+        /// <param name="player"></param>
         /// <param name="command"></param>
-        /// <param name="plugin"></param>
-        public void UnregisterCommand(string command, Plugin plugin)
+        /// <param name="args"></param>
+        [HookMethod("GroupCommand")]
+        private void GroupCommand(IPlayer player, string command, string[] args)
         {
-            // Check if the command is registered and belongs to the plugin
-            if (registeredCommands.TryGetValue(command, out RegisteredCommand cmd) && plugin == cmd.Source)
+            if (!PermissionsLoaded(player))
             {
-                // Setup console command name
-                string[] split = command.Split('.');
-                string parent = split.Length >= 2 ? split[0].Trim() : "global";
-                string name = split.Length >= 2 ? string.Join(".", split.Skip(1).ToArray()) : split[0].Trim();
-                string fullName = $"{parent}.{name}";
+                return;
+            }
 
-                // Remove the chat command
-                registeredCommands.Remove(command);
+            if (args.Length < 2)
+            {
+                player.Reply(lang.GetMessage("CommandUsageGroup", this, player.Id));
+                player.Reply(lang.GetMessage("CommandUsageGroupParent", this, player.Id));
+                player.Reply(lang.GetMessage("CommandUsageGroupRemove", this, player.Id));
+                return;
+            }
 
-                // If this was originally a native Rust command then restore it, otherwise remove it
-                if (cmd.OriginalCallback != null)
+            string mode = args[0];
+            string group = args[1];
+            string title = args.Length >= 3 ? args[2] : "";
+            int rank = args.Length == 4 ? int.Parse(args[3]) : 0;
+
+            if (mode.Equals("add"))
+            {
+                if (permission.GroupExists(group))
                 {
-                    ConsoleSystem.Index.Server.Dict[fullName].Call = cmd.OriginalCallback;
-                    if (fullName.StartsWith("global."))
-                    {
-                        ConsoleSystem.Index.Server.GlobalDict[name].Call = cmd.OriginalCallback;
-                    }
+                    player.Reply(string.Format(lang.GetMessage("GroupAlreadyExists", this, player.Id), group));
+                    return;
+                }
 
-                    // This part handles Rust commands, above handles overwritten across plugins
-                    if (cmd.OriginalRustCommand != null)
-                    {
-                        ConsoleSystem.Index.Server.Dict[fullName] = cmd.OriginalRustCommand;
-                        if (fullName.StartsWith("global."))
-                        {
-                            ConsoleSystem.Index.Server.GlobalDict[name] = cmd.OriginalRustCommand;
-                        }
-                    }
+                permission.CreateGroup(group, title, rank);
+                player.Reply(string.Format(lang.GetMessage("GroupCreated", this, player.Id), group));
+            }
+            else if (mode.Equals("remove"))
+            {
+                if (!permission.GroupExists(group))
+                {
+                    player.Reply(string.Format(lang.GetMessage("GroupNotFound", this, player.Id), group));
+                    return;
+                }
+
+                permission.RemoveGroup(group);
+                player.Reply(string.Format(lang.GetMessage("GroupDeleted", this, player.Id), group));
+            }
+            else if (mode.Equals("set"))
+            {
+                if (!permission.GroupExists(group))
+                {
+                    player.Reply(string.Format(lang.GetMessage("GroupNotFound", this, player.Id), group));
+                    return;
+                }
+
+                permission.SetGroupTitle(group, title);
+                permission.SetGroupRank(group, rank);
+                player.Reply(string.Format(lang.GetMessage("GroupChanged", this, player.Id), group));
+            }
+            else if (mode.Equals("parent"))
+            {
+                if (args.Length <= 2)
+                {
+                    player.Reply(lang.GetMessage("CommandUsageGroupParent", this, player.Id));
+                    return;
+                }
+
+                if (!permission.GroupExists(group))
+                {
+                    player.Reply(string.Format(lang.GetMessage("GroupNotFound", this, player.Id), group));
+                    return;
+                }
+
+                string parent = args[2];
+                if (!string.IsNullOrEmpty(parent) && !permission.GroupExists(parent))
+                {
+                    player.Reply(string.Format(lang.GetMessage("GroupParentNotFound", this, player.Id), parent));
+                    return;
+                }
+
+                if (permission.SetGroupParent(group, parent))
+                {
+                    player.Reply(string.Format(lang.GetMessage("GroupParentChanged", this, player.Id), group, parent));
                 }
                 else
                 {
-                    ConsoleSystem.Index.Server.Dict.Remove(fullName);
-                    if (fullName.StartsWith("global."))
-                    {
-                        ConsoleSystem.Index.Server.GlobalDict.Remove(name);
-                    }
+                    player.Reply(string.Format(lang.GetMessage("GroupParentNotChanged", this, player.Id), group));
                 }
-
-                // The "find" command uses this, so rebuild it when a command is unregistered (as well as registered)
-                ConsoleSystem.Index.All = ConsoleSystem.Index.Server.Dict.Values.ToArray();
+            }
+            else
+            {
+                player.Reply(lang.GetMessage("CommandUsageGroup", this, player.Id));
+                player.Reply(lang.GetMessage("CommandUsageGroupParent", this, player.Id));
+                player.Reply(lang.GetMessage("CommandUsageGroupRemove", this, player.Id));
             }
         }
 
-        #endregion Command Unregistration
+        #endregion Group Command
 
-        #region Message Handling
+        #region Lang Command
 
         /// <summary>
-        /// Handles a chat message
+        /// Called when the "lang" command has been executed
         /// </summary>
         /// <param name="player"></param>
-        /// <param name="message"></param>
-        /// <returns></returns>
-        public bool HandleChatMessage(IPlayer player, string message) => commandHandler.HandleChatMessage(player, message);
-
-        #endregion Message Handling
-
-        #region Command Overriding
-
-        /// <summary>
-        /// Checks if a command can be overridden
-        /// </summary>
         /// <param name="command"></param>
-        /// <returns></returns>
-        private bool CanOverrideCommand(string command)
+        /// <param name="args"></param>
+        [HookMethod("LangCommand")]
+        private void LangCommand(IPlayer player, string command, string[] args)
         {
-            if (!registeredCommands.TryGetValue(command, out RegisteredCommand cmd) || !cmd.Source.IsCorePlugin)
+            if (args.Length < 1)
             {
-                string[] split = command.Split('.');
-                string parent = split.Length >= 2 ? split[0].Trim() : "global";
-                string name = split.Length >= 2 ? string.Join(".", split.Skip(1).ToArray()) : split[0].Trim();
-                return !RustExtension.RestrictedCommands.Contains(command) && !RustExtension.RestrictedCommands.Contains($"{parent}.{name}");
+                player.Reply(lang.GetMessage("CommandUsageLang", this, player.Id));
+                return;
             }
 
-            return true;
-        }
-
-        #endregion Command Overriding
-
-        #region Helpers
-
-        /// <summary>
-        /// Extract the arguments from a ConsoleSystem.Arg object
-        /// </summary>
-        /// <param name="arg"></param>
-        /// <returns></returns>
-        internal static string[] ExtractArgs(ConsoleSystem.Arg arg)
-        {
-            if (arg != null)
+            if (player.IsServer)
             {
-                List<string> argsList = new List<string>();
-                int i = 0;
-                while (arg.HasArgs(++i))
+                // TODO: Check if language exists before setting, warn if not
+                lang.SetServerLanguage(args[0]);
+                player.Reply(string.Format(lang.GetMessage("ServerLanguage", this, player.Id), lang.GetServerLanguage()));
+            }
+            else
+            {
+                // TODO: Check if language exists before setting, warn if not
+                string[] languages = lang.GetLanguages();
+                if (languages.Contains(args[0]))
                 {
-                    argsList.Add(arg.GetString(i - 1));
+                    lang.SetLanguage(args[0], player.Id);
                 }
 
-                return argsList.ToArray();
+                player.Reply(string.Format(lang.GetMessage("PlayerLanguage", this, player.Id), args[0]));
             }
-
-            return new string[0];
         }
 
-        #endregion Helpers
+        #endregion Lang Command
+
+        #region Load Command
+
+        /// <summary>
+        /// Called when the "load" command has been executed
+        /// </summary>
+        /// <param name="player"></param>
+        /// <param name="command"></param>
+        /// <param name="args"></param>
+        [HookMethod("LoadCommand")]
+        private void LoadCommand(IPlayer player, string command, string[] args)
+        {
+            if (args.Length < 1)
+            {
+                player.Reply(lang.GetMessage("CommandUsageLoad", this, player.Id));
+                return;
+            }
+
+            if (args[0].Equals("*") || args[0].Equals("all"))
+            {
+                Interface.Oxide.LoadAllPlugins();
+                return;
+            }
+
+            foreach (string name in args)
+            {
+                if (string.IsNullOrEmpty(name))
+                {
+                    continue;
+                }
+
+                Interface.Oxide.LoadPlugin(name);
+                pluginManager.GetPlugin(name);
+            }
+        }
+
+        #endregion Load Command
+
+        #region Plugins Command
+
+        /// <summary>
+        /// Called when the "plugins" command has been executed
+        /// </summary>
+        /// <param name="player"></param>
+        /// <param name="command"></param>
+        /// <param name="args"></param>
+        [HookMethod("PluginsCommand")]
+        private void PluginsCommand(IPlayer player, string command, string[] args)
+        {
+            Plugin[] loadedPlugins = pluginManager.GetPlugins().Where(pl => !pl.IsCorePlugin).ToArray();
+            HashSet<string> loadedPluginNames = new HashSet<string>(loadedPlugins.Select(pl => pl.Name));
+            Dictionary<string, string> unloadedPluginErrors = new Dictionary<string, string>();
+            foreach (PluginLoader loader in Interface.Oxide.GetPluginLoaders())
+            {
+                foreach (string name in loader.ScanDirectory(Interface.Oxide.PluginDirectory).Except(loadedPluginNames))
+                {
+                    string msg;
+                    unloadedPluginErrors[name] = loader.PluginErrors.TryGetValue(name, out msg) ? msg : "Unloaded"; // TODO: Localization
+                }
+            }
+
+            int totalPluginCount = loadedPlugins.Length + unloadedPluginErrors.Count;
+            if (totalPluginCount < 1)
+            {
+                player.Reply(lang.GetMessage("NoPluginsFound", this, player.Id));
+                return;
+            }
+
+            string output = $"Listing {loadedPlugins.Length + unloadedPluginErrors.Count} plugins:"; // TODO: Localization
+            int number = 1;
+            foreach (Plugin plugin in loadedPlugins.Where(p => p.Filename != null))
+            {
+                output += $"\n  {number++:00} \"{plugin.Title}\" ({plugin.Version}) by {plugin.Author} ({plugin.TotalHookTime:0.00}s) - {plugin.Filename.Basename()}";
+            }
+
+            foreach (string pluginName in unloadedPluginErrors.Keys)
+            {
+                output += $"\n  {number++:00} {pluginName} - {unloadedPluginErrors[pluginName]}";
+            }
+
+            player.Reply(output);
+        }
+
+        #endregion Plugins Command
+
+        #region Reload Command
+
+        /// <summary>
+        /// Called when the "reload" command has been executed
+        /// </summary>
+        /// <param name="player"></param>
+        /// <param name="command"></param>
+        /// <param name="args"></param>
+        [HookMethod("ReloadCommand")]
+        private void ReloadCommand(IPlayer player, string command, string[] args)
+        {
+            if (args.Length < 1)
+            {
+                player.Reply(lang.GetMessage("CommandUsageReload", this, player.Id));
+                return;
+            }
+
+            if (args[0].Equals("*") || args[0].Equals("all"))
+            {
+                Interface.Oxide.ReloadAllPlugins();
+                return;
+            }
+
+            foreach (string name in args)
+            {
+                if (!string.IsNullOrEmpty(name))
+                {
+                    Interface.Oxide.ReloadPlugin(name);
+                }
+            }
+        }
+
+        #endregion Reload Command
+
+        #region Revoke Command
+
+        /// <summary>
+        /// Called when the "revoke" command has been executed
+        /// </summary>
+        /// <param name="player"></param>
+        /// <param name="command"></param>
+        /// <param name="args"></param>
+        [HookMethod("RevokeCommand")]
+        private void RevokeCommand(IPlayer player, string command, string[] args)
+        {
+            if (!PermissionsLoaded(player))
+            {
+                return;
+            }
+
+            if (args.Length < 3)
+            {
+                player.Reply(lang.GetMessage("CommandUsageRevoke", this, player.Id));
+                return;
+            }
+
+            string mode = args[0];
+            string name = args[1].Sanitize();
+            string perm = args[2];
+
+            if (mode.Equals("group"))
+            {
+                if (!permission.GroupExists(name))
+                {
+                    player.Reply(string.Format(lang.GetMessage("GroupNotFound", this, player.Id), name));
+                    return;
+                }
+
+                if (!permission.GroupHasPermission(name, perm))
+                {
+                    // TODO: Check if group is inheriting permission, mention
+                    player.Reply(string.Format(lang.GetMessage("GroupDoesNotHavePermission", this, player.Id), name, perm));
+                    return;
+                }
+
+                permission.RevokeGroupPermission(name, perm);
+                player.Reply(string.Format(lang.GetMessage("GroupPermissionRevoked", this, player.Id), name, perm));
+            }
+            else if (mode.Equals("user"))
+            {
+                IPlayer[] foundPlayers = Covalence.PlayerManager.FindPlayers(name).ToArray();
+                if (foundPlayers.Length > 1)
+                {
+                    player.Reply(string.Format(lang.GetMessage("PlayersFound", this, player.Id), string.Join(", ", foundPlayers.Select(p => p.Name).ToArray())));
+                    return;
+                }
+
+                IPlayer target = foundPlayers.Length == 1 ? foundPlayers[0] : null;
+                if (target == null && !permission.UserIdValid(name))
+                {
+                    player.Reply(string.Format(lang.GetMessage("PlayerNotFound", this, player.Id), name));
+                    return;
+                }
+
+                string userId = name;
+                if (target != null)
+                {
+                    userId = target.Id;
+                    name = target.Name;
+                    permission.UpdateNickname(userId, name);
+                }
+
+                if (!permission.UserHasPermission(userId, perm))
+                {
+                    // TODO: Check if user is inheriting permission, mention
+                    player.Reply(string.Format(lang.GetMessage("PlayerDoesNotHavePermission", this, player.Id), name, perm));
+                    return;
+                }
+
+                permission.RevokeUserPermission(userId, perm);
+                player.Reply(string.Format(lang.GetMessage("PlayerPermissionRevoked", this, player.Id), $"{name} ({userId})", perm));
+            }
+            else
+            {
+                player.Reply(lang.GetMessage("CommandUsageRevoke", this, player.Id));
+            }
+        }
+
+        #endregion Revoke Command
+
+        // TODO: RevokeAllCommand (revoke all permissions from user(s)/group(s))
+
+        #region Show Command
+
+        /// <summary>
+        /// Called when the "show" command has been executed
+        /// </summary>
+        /// <param name="player"></param>
+        /// <param name="command"></param>
+        /// <param name="args"></param>
+        [HookMethod("ShowCommand")]
+        private void ShowCommand(IPlayer player, string command, string[] args)
+        {
+            if (!PermissionsLoaded(player))
+            {
+                return;
+            }
+
+            if (args.Length < 1)
+            {
+                player.Reply(lang.GetMessage("CommandUsageShow", this, player.Id));
+                player.Reply(lang.GetMessage("CommandUsageShowName", this, player.Id));
+                return;
+            }
+
+            string mode = args[0];
+            string name = args.Length == 2 ? args[1].Sanitize() : string.Empty;
+
+            if (mode.Equals("perms"))
+            {
+                player.Reply(string.Format(lang.GetMessage("Permissions", this, player.Id) + ":\n" + string.Join(", ", permission.GetPermissions())));
+            }
+            else if (mode.Equals("perm"))
+            {
+                if (args.Length < 2 || string.IsNullOrEmpty(name))
+                {
+                    player.Reply(lang.GetMessage("CommandUsageShow", this, player.Id));
+                    player.Reply(lang.GetMessage("CommandUsageShowName", this, player.Id));
+                    return;
+                }
+
+                string[] users = permission.GetPermissionUsers(name);
+                string[] groups = permission.GetPermissionGroups(name);
+                string result = $"{string.Format(lang.GetMessage("PermissionPlayers", this, player.Id), name)}:\n";
+                result += users.Length > 0 ? string.Join(", ", users) : lang.GetMessage("NoPermissionPlayers", this, player.Id);
+                result += $"\n\n{string.Format(lang.GetMessage("PermissionGroups", this, player.Id), name)}:\n";
+                result += groups.Length > 0 ? string.Join(", ", groups) : lang.GetMessage("NoPermissionGroups", this, player.Id);
+                player.Reply(result);
+            }
+            else if (mode.Equals("user"))
+            {
+                if (args.Length < 2 || string.IsNullOrEmpty(name))
+                {
+                    player.Reply(lang.GetMessage("CommandUsageShow", this, player.Id));
+                    player.Reply(lang.GetMessage("CommandUsageShowName", this, player.Id));
+                    return;
+                }
+
+                IPlayer[] foundPlayers = Covalence.PlayerManager.FindPlayers(name).ToArray();
+                if (foundPlayers.Length > 1)
+                {
+                    player.Reply(string.Format(lang.GetMessage("PlayersFound", this, player.Id), string.Join(", ", foundPlayers.Select(p => p.Name).ToArray())));
+                    return;
+                }
+
+                IPlayer target = foundPlayers.Length == 1 ? foundPlayers[0] : null;
+                if (target == null && !permission.UserIdValid(name))
+                {
+                    player.Reply(string.Format(lang.GetMessage("PlayerNotFound", this, player.Id), name));
+                    return;
+                }
+
+                string userId = name;
+                if (target != null)
+                {
+                    userId = target.Id;
+                    name = target.Name;
+                    permission.UpdateNickname(userId, name);
+                    name += $" ({userId})";
+                }
+
+                string[] perms = permission.GetUserPermissions(userId);
+                string[] groups = permission.GetUserGroups(userId);
+                string result = $"{string.Format(lang.GetMessage("PlayerPermissions", this, player.Id), name)}:\n";
+                result += perms.Length > 0 ? string.Join(", ", perms) : lang.GetMessage("NoPlayerPermissions", this, player.Id);
+                result += $"\n\n{string.Format(lang.GetMessage("PlayerGroups", this, player.Id), name)}:\n";
+                result += groups.Length > 0 ? string.Join(", ", groups) : lang.GetMessage("NoPlayerGroups", this, player.Id);
+                player.Reply(result);
+            }
+            else if (mode.Equals("group"))
+            {
+                if (args.Length < 2 || string.IsNullOrEmpty(name))
+                {
+                    player.Reply(lang.GetMessage("CommandUsageShow", this, player.Id));
+                    player.Reply(lang.GetMessage("CommandUsageShowName", this, player.Id));
+                    return;
+                }
+
+                if (!permission.GroupExists(name))
+                {
+                    player.Reply(string.Format(lang.GetMessage("GroupNotFound", this, player.Id), name));
+                    return;
+                }
+
+                string[] users = permission.GetUsersInGroup(name);
+                string[] perms = permission.GetGroupPermissions(name);
+                string result = $"{string.Format(lang.GetMessage("GroupPlayers", this, player.Id), name)}:\n";
+                result += users.Length > 0 ? string.Join(", ", users) : lang.GetMessage("NoPlayersInGroup", this, player.Id);
+                result += $"\n\n{string.Format(lang.GetMessage("GroupPermissions", this, player.Id), name)}:\n";
+                result += perms.Length > 0 ? string.Join(", ", perms) : lang.GetMessage("NoGroupPermissions", this, player.Id);
+                string parent = permission.GetGroupParent(name);
+                while (permission.GroupExists(parent))
+                {
+                    result += $"\n{string.Format(lang.GetMessage("ParentGroupPermissions", this, player.Id), parent)}:\n";
+                    result += string.Join(", ", permission.GetGroupPermissions(parent));
+                    parent = permission.GetGroupParent(parent);
+                }
+                player.Reply(result);
+            }
+            else if (mode.Equals("groups"))
+            {
+                player.Reply(string.Format(lang.GetMessage("Groups", this, player.Id) + ":\n" + string.Join(", ", permission.GetGroups())));
+            }
+            else
+            {
+                player.Reply(lang.GetMessage("CommandUsageShow", this, player.Id));
+                player.Reply(lang.GetMessage("CommandUsageShowName", this, player.Id));
+            }
+        }
+
+        #endregion Show Command
+
+        #region Unload Command
+
+        /// <summary>
+        /// Called when the "unload" command has been executed
+        /// </summary>
+        /// <param name="player"></param>
+        /// <param name="command"></param>
+        /// <param name="args"></param>
+        [HookMethod("UnloadCommand")]
+        private void UnloadCommand(IPlayer player, string command, string[] args)
+        {
+            if (args.Length < 1)
+            {
+                player.Reply(lang.GetMessage("CommandUsageUnload", this, player.Id));
+                return;
+            }
+
+            if (args[0].Equals("*") || args[0].Equals("all"))
+            {
+                Interface.Oxide.UnloadAllPlugins();
+                return;
+            }
+
+            foreach (string name in args)
+            {
+                if (!string.IsNullOrEmpty(name))
+                {
+                    Interface.Oxide.UnloadPlugin(name);
+                }
+            }
+        }
+
+        #endregion Unload Command
+
+        #region User Group Command
+
+        /// <summary>
+        /// Called when the "usergroup" command has been executed
+        /// </summary>
+        /// <param name="player"></param>
+        /// <param name="command"></param>
+        /// <param name="args"></param>
+        [HookMethod("UserGroupCommand")]
+        private void UserGroupCommand(IPlayer player, string command, string[] args)
+        {
+            if (!PermissionsLoaded(player))
+            {
+                return;
+            }
+
+            if (args.Length < 3)
+            {
+                player.Reply(lang.GetMessage("CommandUsageUserGroup", this, player.Id));
+                return;
+            }
+
+            string mode = args[0];
+            string name = args[1].Sanitize();
+            string group = args[2];
+
+            IPlayer[] foundPlayers = Covalence.PlayerManager.FindPlayers(name).ToArray();
+            if (foundPlayers.Length > 1)
+            {
+                player.Reply(string.Format(lang.GetMessage("PlayersFound", this, player.Id), string.Join(", ", foundPlayers.Select(p => p.Name).ToArray())));
+                return;
+            }
+
+            IPlayer target = foundPlayers.Length == 1 ? foundPlayers[0] : null;
+            if (target == null && !permission.UserIdValid(name))
+            {
+                player.Reply(string.Format(lang.GetMessage("PlayerNotFound", this, player.Id), name));
+                return;
+            }
+
+            string userId = name;
+            if (target != null)
+            {
+                userId = target.Id;
+                name = target.Name;
+                permission.UpdateNickname(userId, name);
+                name += $"({userId})";
+            }
+
+            if (!permission.GroupExists(group))
+            {
+                player.Reply(string.Format(lang.GetMessage("GroupNotFound", this, player.Id), group));
+                return;
+            }
+
+            if (mode.Equals("add"))
+            {
+                permission.AddUserGroup(userId, group);
+                player.Reply(string.Format(lang.GetMessage("PlayerAddedToGroup", this, player.Id), name, group));
+            }
+            else if (mode.Equals("remove"))
+            {
+                permission.RemoveUserGroup(userId, group);
+                player.Reply(string.Format(lang.GetMessage("PlayerRemovedFromGroup", this, player.Id), name, group));
+            }
+            else
+            {
+                player.Reply(lang.GetMessage("CommandUsageUserGroup", this, player.Id));
+            }
+        }
+
+        #endregion User Group Command
+
+        // TODO: UserGroupAllCommand (add/remove all users to/from group)
+
+        #region Version Command
+
+        /// <summary>
+        /// Called when the "version" command has been executed
+        /// </summary>
+        /// <param name="player"></param>
+        /// <param name="command"></param>
+        /// <param name="args"></param>
+        [HookMethod("VersionCommand")]
+        private void VersionCommand(IPlayer player, string command, string[] args)
+        {
+            if (player.IsServer)
+            {
+                player.Reply("Oxide.Rust Version: " + RustExtension.AssemblyVersion);
+            }
+            else
+            {
+                string format = Covalence.FormatText(lang.GetMessage("Version", this, player.Id));
+                player.Reply(string.Format(format, RustExtension.AssemblyVersion, Covalence.GameName, Server.Version, Server.Protocol));
+            }
+        }
+
+        #endregion Version Command
+
+        #region Save Command
+
+        [HookMethod("SaveCommand")]
+        private void SaveCommand(IPlayer player, string command, string[] args)
+        {
+            if (PermissionsLoaded(player) && player.IsAdmin)
+            {
+                Interface.Oxide.OnSave();
+                Covalence.PlayerManager.SavePlayerData();
+                player.Reply(lang.GetMessage("DataSaved", this, player.Id));
+            }
+        }
+
+        #endregion Save Command
     }
 }
