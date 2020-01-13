@@ -49,9 +49,9 @@ namespace Oxide.Game.Rust
         /// </summary>
         public override string[] DefaultReferences => new[]
         {
-            "ApexAI", "ApexShared", "Facepunch.Network", "Facepunch.Steamworks", "Facepunch.System", "Facepunch.UnityEngine", "NewAssembly", "Rust.Data",
-            "Rust.Global", "Rust.Workshop", "Rust.World", "System.Drawing", "UnityEngine.AIModule", "UnityEngine.AssetBundleModule", "UnityEngine.CoreModule",
-            "UnityEngine.GridModule", "UnityEngine.ImageConversionModule", "UnityEngine.Networking", "UnityEngine.PhysicsModule", "UnityEngine.TerrainModule",
+            "ApexAI", "ApexShared", "Facepunch.Network", "Facepunch.Steamworks.Posix64", "Facepunch.Steamworks.Win64", "Facepunch.System", "Facepunch.UnityEngine", "NewAssembly",
+            "Rust.Data", "Rust.Global", "Rust.Localization", "Rust.Workshop", "Rust.World", "System.Drawing", "UnityEngine.AIModule", "UnityEngine.AssetBundleModule",
+            "UnityEngine.CoreModule", "UnityEngine.GridModule", "UnityEngine.ImageConversionModule", "UnityEngine.Networking", "UnityEngine.PhysicsModule", "UnityEngine.TerrainModule",
             "UnityEngine.TerrainPhysicsModule", "UnityEngine.UI", "UnityEngine.UIModule", "UnityEngine.UIElementsModule", "UnityEngine.UnityWebRequestAudioModule",
             "UnityEngine.UnityWebRequestModule", "UnityEngine.UnityWebRequestTextureModule", "UnityEngine.UnityWebRequestWWWModule", "UnityEngine.VehiclesModule",
             "UnityEngine.WebModule"
@@ -63,8 +63,8 @@ namespace Oxide.Game.Rust
         public override string[] WhitelistAssemblies => new[]
         {
             "Assembly-CSharp", "Assembly-CSharp-firstpass", "DestMath", "Facepunch.Network", "Facepunch.System", "Facepunch.UnityEngine", "mscorlib",
-            "Oxide.Core", "Oxide.Rust", /* < Needed for non-C# plugins for some reason */ "RustBuild", "Rust.Data", "Rust.Global", "System", "System.Core",
-            "UnityEngine"
+            "Oxide.Core", "Oxide.Rust", /* < Needed for non-C# plugins for some reason */ "RustBuild", "Rust.Data", "Rust.Global", "Rust.Localization",
+            "System", "System.Core", "UnityEngine"
         };
 
         /// <summary>
@@ -120,6 +120,11 @@ namespace Oxide.Game.Rust
             Manager.RegisterLibrary("Player", new Libraries.Player());
             Manager.RegisterLibrary("Server", new Libraries.Server());
             Manager.RegisterPluginLoader(new RustPluginLoader());
+
+            if (Environment.OSVersion.Platform == PlatformID.Unix)
+            {
+                Cleanup.Add("Facepunch.Steamworks.Win64.dll"); // TODO: Remove after a few updates
+            }
         }
 
         /// <summary>
@@ -136,7 +141,7 @@ namespace Oxide.Game.Rust
         public override void OnModLoad()
         {
             CSharpPluginLoader.PluginReferences.UnionWith(DefaultReferences);
-            //Output.OnMessage += HandleLog;
+            //Facepunch.Output.OnMessage += HandleLog;
         }
 
         private static void HandleLog(string message, string stackTrace, LogType logType)

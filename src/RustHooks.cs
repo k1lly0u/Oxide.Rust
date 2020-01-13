@@ -1,11 +1,12 @@
+using ConVar;
 using Network;
 using Oxide.Core;
 using Oxide.Core.Configuration;
 using Oxide.Core.Libraries.Covalence;
 using Oxide.Core.Plugins;
-using Oxide.Core.RemoteConsole;
 using Rust.Ai;
 using Rust.Ai.HTN;
+using Steamworks;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
@@ -28,26 +29,22 @@ namespace Oxide.Game.Rust
         /// Called when a remote console command is received
         /// </summary>
         /// <returns></returns>
-        /// <param name="sender"></param>
+        /// <param name="ipAddress"></param>
         /// <param name="command"></param>
         [HookMethod("IOnRconCommand")]
-        private object IOnRconCommand(IPEndPoint sender, string command)
+        private object IOnRconCommand(IPAddress ipAddress, string command)
         {
-            if (sender != null && !string.IsNullOrEmpty(command))
+            if (ipAddress != null && !string.IsNullOrEmpty(command))
             {
-                RemoteMessage message = RemoteMessage.GetMessage(command);
-                if (!string.IsNullOrEmpty(message?.Message))
+                string[] fullCommand = CommandLine.Split(command);
+                if (fullCommand.Length >= 1)
                 {
-                    string[] fullCommand = CommandLine.Split(message.Message);
-                    if (fullCommand.Length >= 1)
-                    {
-                        string cmd = fullCommand[0].ToLower();
-                        string[] args = fullCommand.Skip(1).ToArray();
+                    string cmd = fullCommand[0].ToLower();
+                    string[] args = fullCommand.Skip(1).ToArray();
 
-                        if (Interface.CallHook("OnRconCommand", sender, cmd, args) != null)
-                        {
-                            return true;
-                        }
+                    if (Interface.CallHook("OnRconCommand", ipAddress, cmd, args) != null)
+                    {
+                        return true;
                     }
                 }
             }
@@ -95,10 +92,34 @@ namespace Oxide.Game.Rust
         {
             if (arg == null || arg.Connection != null && arg.Player() == null)
             {
-                return true; // Ingore console commands from client during connection
+                return true; // Ignore console commands from client during connection
             }
 
             return arg.cmd.FullName != "chat.say" ? Interface.CallHook("OnServerCommand", arg) : null;
+        }
+
+        /// <summary>
+        /// Called when the server is updating Steam information
+        /// </summary>
+        [HookMethod("IOnUpdateServerInformation")]
+        private void IOnUpdateServerInformation()
+        {
+            // Add Steam tags for Oxide
+            SteamServer.GameTags += ",oxide";
+            if (Interface.Oxide.Config.Options.Modded)
+            {
+                SteamServer.GameTags += ",modded";
+            }
+        }
+
+        /// <summary>
+        /// Called when the server description is updating
+        /// </summary>
+        [HookMethod("IOnUpdateServerDescription")]
+        private void IOnUpdateServerDescription()
+        {
+            // Fix for server description not always updating
+            SteamServer.SetKey("description_0", string.Empty);
         }
 
         #endregion Server Hooks
@@ -115,7 +136,7 @@ namespace Oxide.Game.Rust
         private object ICanPickupEntity(BasePlayer player, DoorCloser entity)
         {
             object callHook = Interface.CallHook("CanPickupEntity", player, entity);
-            return callHook is bool result && result ? (object)true : null;
+            return callHook is bool result && !result ? (object)true : null;
         }
 
         /// <summary>
@@ -238,7 +259,7 @@ namespace Oxide.Game.Rust
 
             object loginSpecific = Interface.CallHook("CanClientLogin", connection);
             object loginCovalence = Interface.CallHook("CanUserLogin", name, id, ip);
-            object canLogin = loginSpecific ?? loginCovalence; // TODO: Fix 'RustCore' hook conflict when both return
+            object canLogin = loginSpecific ?? loginCovalence; // TODO: Fix hook conflict when multiple return
 
             if (canLogin is string || canLogin is bool && !(bool)canLogin)
             {
@@ -249,7 +270,7 @@ namespace Oxide.Game.Rust
             // Call game and covalence hooks
             object approvedSpecific = Interface.CallHook("OnUserApprove", connection);
             object approvedCovalence = Interface.CallHook("OnUserApproved", name, id, ip);
-            return approvedSpecific ?? approvedCovalence; // TODO: Fix 'RustCore' hook conflict when both return
+            return approvedSpecific ?? approvedCovalence; // TODO: Fix hook conflict when multiple return
         }
 
         /// <summary>
@@ -269,41 +290,44 @@ namespace Oxide.Game.Rust
         /// <summary>
         /// Called when the player sends a chat message
         /// </summary>
-        /// <param name="arg"></param>
+        /// <param name="player"></param>
+        /// <param name="message"></param>
+        /// <param name="channel"></param>
         /// <returns></returns>
         [HookMethod("IOnPlayerChat")]
-        private object IOnPlayerChat(ConsoleSystem.Arg arg)
+        private object IOnPlayerChat(BasePlayer basePlayer, string message, Chat.ChatChannel channel)
         {
-            // Get the full chat string
-            string str = arg.GetString(0).Trim();
-            if (string.IsNullOrEmpty(str))
+            // Ignore empty and "default" text
+            if (string.IsNullOrEmpty(message) || message.Equals("text"))
             {
                 return true;
             }
 
             // Get player objects
-            BasePlayer player = arg.Connection.player as BasePlayer;
-            IPlayer iplayer = player?.IPlayer;
-            if (iplayer == null)
+            IPlayer player = basePlayer?.IPlayer;
+            if (player == null)
             {
                 return null;
             }
 
             // Call game and covalence hooks
-            object chatSpecific = Interface.CallHook("OnPlayerChat", arg);
-            object chatCovalence = Interface.CallHook("OnUserChat", iplayer, str);
-            return chatSpecific ?? chatCovalence; // TODO: Fix 'RustCore' hook conflict when both return
+            object chatSpecific = Interface.CallHook("OnPlayerChat", basePlayer, message, channel);
+            object chatCovalence = Interface.CallHook("OnUserChat", player, message);
+            //object chatDeprecated = Interface.Oxide.CallDeprecatedHook("OnPlayerChat", $"OnPlayerChat(BasePlayer player, string message, Chat.ChatChannel channel)",
+            //    new System.DateTime(2020, 1, 1), new ConsoleSystem.Arg(ConsoleSystem.Option.Server.FromConnection(basePlayer.Connection), ConsoleSystem.BuildCommand("chat.say", message)), channel);
+            return chatSpecific ?? chatCovalence /*?? chatDeprecated*/; // TODO: Fix hook conflict when multiple return
         }
 
         /// <summary>
         /// Called when the player sends a chat command
         /// </summary>
-        /// <param name="arg"></param>
+        /// <param name="basePlayer"></param>
+        /// <param name="message"></param>
         /// <returns></returns>
         [HookMethod("IOnPlayerCommand")]
-        private void IOnPlayerCommand(ConsoleSystem.Arg arg)
+        private void IOnPlayerCommand(BasePlayer basePlayer, string message)
         {
-            string str = arg.GetString(0).Trim();
+            string str = message.Replace("\n", "").Replace("\r", "").Trim();
 
             // Check if it is a chat command
             if (string.IsNullOrEmpty(str) || str[0] != '/' || str.Length <= 1)
@@ -321,29 +345,39 @@ namespace Oxide.Game.Rust
             }
 
             // Get player objects
-            BasePlayer player = arg.Connection.player as BasePlayer;
-            IPlayer iplayer = player?.IPlayer;
-            if (iplayer == null)
+            IPlayer player = basePlayer?.IPlayer;
+            if (player == null)
             {
                 return;
             }
 
             // Is the command blocked?
-            object commandSpecific = Interface.CallHook("OnPlayerCommand", arg);
-            object commandCovalence = Interface.CallHook("OnUserCommand", iplayer, cmd, args);
-            if (commandSpecific != null || commandCovalence != null)
+            object commandSpecific = Interface.CallHook("OnPlayerCommand", basePlayer, cmd, args);
+            object commandCovalence = Interface.CallHook("OnUserCommand", player, cmd, args);
+            //object commandDeprecated = Interface.Oxide.CallDeprecatedHook("OnPlayerCommand", $"OnPlayerCommand(BasePlayer player, string command, string[] args)",
+            //    new System.DateTime(2020, 1, 1), new ConsoleSystem.Arg(ConsoleSystem.Option.Server.FromConnection(basePlayer.Connection), ConsoleSystem.BuildCommand("chat.say", cmd, args)));
+            if (commandSpecific != null || commandCovalence != null /*|| commandDeprecated != null*/)
             {
                 return;
             }
 
             // Is it a valid chat command?
-            if (!Covalence.CommandSystem.HandleChatMessage(iplayer, str) && !cmdlib.HandleChatCommand(player, cmd, args))
+            if (!Covalence.CommandSystem.HandleChatMessage(player, str) && !cmdlib.HandleChatCommand(basePlayer, cmd, args))
             {
                 if (Interface.Oxide.Config.Options.Modded)
                 {
-                    iplayer.Reply(string.Format(lang.GetMessage("UnknownCommand", this, iplayer.Id), cmd));
+                    player.Reply(string.Format(lang.GetMessage("UnknownCommand", this, player.Id), cmd));
                 }
             }
+        }
+
+        /// <summary>
+        /// Called when the player is authenticating
+        /// </summary>
+        /// <param name="connection"></param>
+        private void OnClientAuth(Connection connection)
+        {
+            connection.username = Regex.Replace(connection.username, @"<[^>]*>", string.Empty);
         }
 
         /// <summary>
@@ -380,6 +414,22 @@ namespace Oxide.Game.Rust
             {
                 player.IPlayer = iplayer;
                 Interface.CallHook("OnUserConnected", iplayer);
+            }
+        }
+
+        /// <summary>
+        /// Called when setting/changing info values for a player
+        /// </summary>
+        /// <param name="connection"></param>
+        /// <param name="key"></param>
+        /// <param name="val"></param>
+        [HookMethod("OnPlayerSetInfo")]
+        private void OnPlayerSetInfo(Connection connection, string key, string val)
+        {
+            // Change language for player
+            if (key == "global.language")
+            {
+                lang.SetLanguage(val, connection.userid.ToString());
             }
         }
 
@@ -581,5 +631,33 @@ namespace Oxide.Game.Rust
         }
 
         #endregion Item Hooks
+
+        #region Deprecated Hooks
+
+        [HookMethod("IOnActiveItemChange")]
+        private object IOnActiveItemChange(BasePlayer player, Item oldItem, uint newItemId)
+        {
+            object newHook = Interface.Oxide.CallHook("OnActiveItemChange", player, oldItem, newItemId);
+            object oldHook = Interface.Oxide.CallDeprecatedHook("OnActiveItemChange", $"OnActiveItemChange(BasePlayer player, Item oldItem, uint newItemId)",
+                new System.DateTime(2020, 1, 1), player, newItemId);
+            return newHook ?? oldHook;
+        }
+
+        [HookMethod("IOnActiveItemChanged")]
+        private void IOnActiveItemChanged(BasePlayer player, Item oldItem, Item newItem)
+        {
+            Interface.Oxide.CallHook("OnActiveItemChanged", player, oldItem, newItem);
+            Interface.Oxide.CallDeprecatedHook("OnPlayerActiveItemChanged", $"OnActiveItemChanged(BasePlayer player, Item oldItem, Item newItem)",
+                new System.DateTime(2020, 1, 1), player, oldItem, newItem);
+        }
+
+        [HookMethod("OnQuarryToggled")]
+        private void OnQuarryToggled(MiningQuarry quarry)
+        {
+            Interface.Oxide.CallDeprecatedHook("OnQuarryEnabled", $"OnQuarryToggled(MiningQuarry quarry)",
+                new System.DateTime(2020, 1, 1), quarry);
+        }
+
+        #endregion Deprecated Hooks
     }
 }
