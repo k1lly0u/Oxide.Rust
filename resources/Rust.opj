@@ -439,7 +439,7 @@
                 "UnityEngine.Ray"
               ]
             },
-            "MSILHash": "hCOmZfLt7nJoJ2hBLEjGRQkAy0m4XCc2o+a3H+rUmoI=",
+            "MSILHash": "Bn44uD+GxqtzDI6/BQST8w5f9hyC68PeofyYLGjxyZo=",
             "BaseHookName": null,
             "HookCategory": "Item"
           }
@@ -467,7 +467,7 @@
                 "System.UInt32"
               ]
             },
-            "MSILHash": "krG4H8P7CU1G/WvGybUrMNuHhQImrV/27n542OE5BlI=",
+            "MSILHash": "wgzXUAT5e6lZrgY4jkSgt8DaQHWOVOClQj+YPW885A0=",
             "BaseHookName": null,
             "HookCategory": "Item"
           }
@@ -8027,7 +8027,7 @@
                 "Network.Message"
               ]
             },
-            "MSILHash": "xCCkKT2j2SkIVZ/yNP8Y/+6/TOrp/OiP8NNfQ1FrQQw=",
+            "MSILHash": "ABpV+DoAvSLqcwoKulEiBaqs+H7TRWs1EdvrC+KLMd8=",
             "BaseHookName": null,
             "HookCategory": "Player"
           }
@@ -8631,7 +8631,7 @@
               "ReturnType": "System.Void",
               "Parameters": []
             },
-            "MSILHash": "zaR35ultuTLTwR/hZVeyeuD2WOITzteop6uBGM4mSAI=",
+            "MSILHash": "a5aL+6U1NrBg/PnJxId0HOlWO3PinZRVJgQc4S3mFCY=",
             "BaseHookName": null,
             "HookCategory": "Entity"
           }
@@ -10613,6 +10613,208 @@
               "Parameters": []
             },
             "MSILHash": "hSFWlPVTsz0O486w5skwJHQ+VE101/6r20kw0mnNE7o=",
+            "BaseHookName": null,
+            "HookCategory": "Resource"
+          }
+        },
+        {
+          "Type": "Simple",
+          "Hook": {
+            "InjectionIndex": 166,
+            "ReturnBehavior": 1,
+            "ArgumentBehavior": 4,
+            "ArgumentString": "a0, l1",
+            "HookTypeName": "Simple",
+            "Name": "CanPopulateCorpseLoot",
+            "HookName": "CanPopulateCorpseLoot",
+            "AssemblyName": "Assembly-CSharp.dll",
+            "TypeName": "Rust.Ai.HTN.Murderer.MurdererDefinition",
+            "Flagged": false,
+            "Signature": {
+              "Exposure": 2,
+              "Name": "OnCreateCorpse",
+              "ReturnType": "BaseCorpse",
+              "Parameters": [
+                "HTNPlayer"
+              ]
+            },
+            "MSILHash": "XKbxqvkvJN6cQmm2bd4XIkOxf3v9MN34F0ffXYHtVvc=",
+            "BaseHookName": null,
+            "HookCategory": "Resource"
+          }
+        },
+        {
+          "Type": "Simple",
+          "Hook": {
+            "InjectionIndex": 130,
+            "ReturnBehavior": 1,
+            "ArgumentBehavior": 4,
+            "ArgumentString": "a0, l1",
+            "HookTypeName": "Simple",
+            "Name": "CanPopulateCorpseLoot",
+            "HookName": "CanPopulateCorpseLoot",
+            "AssemblyName": "Assembly-CSharp.dll",
+            "TypeName": "Rust.Ai.HTN.Scientist.ScientistDefinition",
+            "Flagged": false,
+            "Signature": {
+              "Exposure": 2,
+              "Name": "OnCreateCorpse",
+              "ReturnType": "BaseCorpse",
+              "Parameters": [
+                "HTNPlayer"
+              ]
+            },
+            "MSILHash": "ZV3sZvkz30yPhzxi4xfgWl4w4vsJQgORN0kU0QeQ4Pw=",
+            "BaseHookName": null,
+            "HookCategory": "Resource"
+          }
+        },
+        {
+          "Type": "Simple",
+          "Hook": {
+            "InjectionIndex": 137,
+            "ReturnBehavior": 1,
+            "ArgumentBehavior": 4,
+            "ArgumentString": "a0, l1",
+            "HookTypeName": "Simple",
+            "Name": "CanPopulateCorpseLoot",
+            "HookName": "CanPopulateCorpseLoot",
+            "AssemblyName": "Assembly-CSharp.dll",
+            "TypeName": "Rust.Ai.HTN.NPCTurret.NPCTurretDefinition",
+            "Flagged": false,
+            "Signature": {
+              "Exposure": 2,
+              "Name": "OnCreateCorpse",
+              "ReturnType": "BaseCorpse",
+              "Parameters": [
+                "HTNPlayer"
+              ]
+            },
+            "MSILHash": "FC66JmDjrJuHlhNfG0iuVUQAY7aKUOopsFfQE9qidbA=",
+            "BaseHookName": null,
+            "HookCategory": "Resource"
+          }
+        },
+        {
+          "Type": "Simple",
+          "Hook": {
+            "InjectionIndex": 130,
+            "ReturnBehavior": 1,
+            "ArgumentBehavior": 4,
+            "ArgumentString": "a0, l1",
+            "HookTypeName": "Simple",
+            "Name": "CanPopulateCorpseLoot",
+            "HookName": "CanPopulateCorpseLoot",
+            "AssemblyName": "Assembly-CSharp.dll",
+            "TypeName": "Rust.Ai.HTN.ScientistAStar.ScientistAStarDefinition",
+            "Flagged": false,
+            "Signature": {
+              "Exposure": 2,
+              "Name": "OnCreateCorpse",
+              "ReturnType": "BaseCorpse",
+              "Parameters": [
+                "HTNPlayer"
+              ]
+            },
+            "MSILHash": "ZXKCFeJjA7IK4IeHlXnMnnllSlUN2hB35aJakQJx7RM=",
+            "BaseHookName": null,
+            "HookCategory": "Resource"
+          }
+        },
+        {
+          "Type": "Simple",
+          "Hook": {
+            "InjectionIndex": 130,
+            "ReturnBehavior": 1,
+            "ArgumentBehavior": 4,
+            "ArgumentString": "a0, l1",
+            "HookTypeName": "Simple",
+            "Name": "CanPopulateCorpseLoot",
+            "HookName": "CanPopulateCorpseLoot",
+            "AssemblyName": "Assembly-CSharp.dll",
+            "TypeName": "Rust.Ai.HTN.ScientistJunkpile.ScientistJunkpileDefinition",
+            "Flagged": false,
+            "Signature": {
+              "Exposure": 2,
+              "Name": "OnCreateCorpse",
+              "ReturnType": "BaseCorpse",
+              "Parameters": [
+                "HTNPlayer"
+              ]
+            },
+            "MSILHash": "mS8SBEz1oHbdVTyOjeMzw0KFsMj74eSrrE2+ZQbKprQ=",
+            "BaseHookName": null,
+            "HookCategory": "Resource"
+          }
+        },
+        {
+          "Type": "Simple",
+          "Hook": {
+            "InjectionIndex": 99,
+            "ReturnBehavior": 1,
+            "ArgumentBehavior": 4,
+            "ArgumentString": "this, l1",
+            "HookTypeName": "Simple",
+            "Name": "CanPopulateCorpseLoot",
+            "HookName": "CanPopulateCorpseLoot",
+            "AssemblyName": "Assembly-CSharp.dll",
+            "TypeName": "HumanNPC",
+            "Flagged": false,
+            "Signature": {
+              "Exposure": 2,
+              "Name": "CreateCorpse",
+              "ReturnType": "BaseCorpse",
+              "Parameters": []
+            },
+            "MSILHash": "Kf7VIdbQMRz75RvD4NuyplXFqhnhpvTJ5Wv+qseAbhk=",
+            "BaseHookName": null,
+            "HookCategory": "Resource"
+          }
+        },
+        {
+          "Type": "Simple",
+          "Hook": {
+            "InjectionIndex": 123,
+            "ReturnBehavior": 1,
+            "ArgumentBehavior": 4,
+            "ArgumentString": "this, l1",
+            "HookTypeName": "Simple",
+            "Name": "CanPopulateCorpseLoot",
+            "HookName": "CanPopulateCorpseLoot",
+            "AssemblyName": "Assembly-CSharp.dll",
+            "TypeName": "NPCMurderer",
+            "Flagged": false,
+            "Signature": {
+              "Exposure": 2,
+              "Name": "CreateCorpse",
+              "ReturnType": "BaseCorpse",
+              "Parameters": []
+            },
+            "MSILHash": "AZ48FOW03Lrozdmy/TgQLBEevdNaTl3CHrwJHLEVXG0=",
+            "BaseHookName": null,
+            "HookCategory": "Resource"
+          }
+        },
+        {
+          "Type": "Simple",
+          "Hook": {
+            "InjectionIndex": 99,
+            "ReturnBehavior": 1,
+            "ArgumentBehavior": 4,
+            "ArgumentString": "this, l1",
+            "HookTypeName": "Simple",
+            "Name": "CanPopulateCorpseLoot",
+            "HookName": "CanPopulateCorpseLoot",
+            "AssemblyName": "Assembly-CSharp.dll",
+            "TypeName": "Scientist",
+            "Flagged": false,
+            "Signature": {
+              "Exposure": 2,
+              "Name": "CreateCorpse",
+              "ReturnType": "BaseCorpse",
+              "Parameters": []
+            },
+            "MSILHash": "NRJ79HMhjDs2I28hQrAJJUFaD9NexeTcVNvF1GeaoJg=",
             "BaseHookName": null,
             "HookCategory": "Resource"
           }
@@ -14755,7 +14957,7 @@
           "TargetExposure": [
             2
           ],
-          "Flagged": false,
+          "Flagged": true,
           "Signature": {
             "Exposure": [
               0
@@ -14793,7 +14995,7 @@
           "TargetExposure": [
             2
           ],
-          "Flagged": false,
+          "Flagged": true,
           "Signature": {
             "Exposure": [
               0
@@ -14831,7 +15033,7 @@
           "TargetExposure": [
             2
           ],
-          "Flagged": false,
+          "Flagged": true,
           "Signature": {
             "Exposure": [
               0
@@ -14850,7 +15052,7 @@
           "TargetExposure": [
             2
           ],
-          "Flagged": false,
+          "Flagged": true,
           "Signature": {
             "Exposure": [
               0
@@ -15260,7 +15462,7 @@
           "TargetExposure": [
             2
           ],
-          "Flagged": false,
+          "Flagged": true,
           "Signature": {
             "Exposure": [
               0
@@ -15279,7 +15481,7 @@
           "TargetExposure": [
             2
           ],
-          "Flagged": false,
+          "Flagged": true,
           "Signature": {
             "Exposure": [
               0
@@ -15298,7 +15500,7 @@
           "TargetExposure": [
             2
           ],
-          "Flagged": false,
+          "Flagged": true,
           "Signature": {
             "Exposure": [
               0
@@ -15317,7 +15519,7 @@
           "TargetExposure": [
             2
           ],
-          "Flagged": false,
+          "Flagged": true,
           "Signature": {
             "Exposure": [
               0
@@ -15340,7 +15542,7 @@
           "TargetExposure": [
             2
           ],
-          "Flagged": false,
+          "Flagged": true,
           "Signature": {
             "Exposure": [
               0
@@ -15359,7 +15561,7 @@
           "TargetExposure": [
             2
           ],
-          "Flagged": false,
+          "Flagged": true,
           "Signature": {
             "Exposure": [
               0
@@ -15380,7 +15582,7 @@
           "TargetExposure": [
             2
           ],
-          "Flagged": false,
+          "Flagged": true,
           "Signature": {
             "Exposure": [
               0
@@ -15401,7 +15603,7 @@
           "TargetExposure": [
             2
           ],
-          "Flagged": false,
+          "Flagged": true,
           "Signature": {
             "Exposure": [
               0
@@ -15423,7 +15625,7 @@
           "TargetExposure": [
             2
           ],
-          "Flagged": false,
+          "Flagged": true,
           "Signature": {
             "Exposure": [
               0
@@ -15446,7 +15648,7 @@
           "TargetExposure": [
             2
           ],
-          "Flagged": false,
+          "Flagged": true,
           "Signature": {
             "Exposure": [
               0
@@ -15466,7 +15668,7 @@
             2,
             0
           ],
-          "Flagged": false,
+          "Flagged": true,
           "Signature": {
             "Exposure": [
               2,
@@ -15486,7 +15688,7 @@
           "TargetExposure": [
             2
           ],
-          "Flagged": false,
+          "Flagged": true,
           "Signature": {
             "Exposure": [
               0
@@ -15505,7 +15707,7 @@
           "TargetExposure": [
             2
           ],
-          "Flagged": false,
+          "Flagged": true,
           "Signature": {
             "Exposure": [
               0
@@ -15524,7 +15726,7 @@
           "TargetExposure": [
             2
           ],
-          "Flagged": false,
+          "Flagged": true,
           "Signature": {
             "Exposure": [
               0
@@ -15543,7 +15745,7 @@
           "TargetExposure": [
             2
           ],
-          "Flagged": false,
+          "Flagged": true,
           "Signature": {
             "Exposure": [
               0
@@ -15562,7 +15764,7 @@
           "TargetExposure": [
             2
           ],
-          "Flagged": false,
+          "Flagged": true,
           "Signature": {
             "Exposure": [
               0
@@ -15581,7 +15783,7 @@
           "TargetExposure": [
             2
           ],
-          "Flagged": false,
+          "Flagged": true,
           "Signature": {
             "Exposure": [
               0
@@ -15600,7 +15802,7 @@
           "TargetExposure": [
             2
           ],
-          "Flagged": false,
+          "Flagged": true,
           "Signature": {
             "Exposure": [
               0
@@ -15619,7 +15821,7 @@
           "TargetExposure": [
             2
           ],
-          "Flagged": false,
+          "Flagged": true,
           "Signature": {
             "Exposure": [
               0,
@@ -15639,7 +15841,7 @@
           "TargetExposure": [
             2
           ],
-          "Flagged": false,
+          "Flagged": true,
           "Signature": {
             "Exposure": [
               2,
@@ -15660,7 +15862,7 @@
             2,
             2
           ],
-          "Flagged": false,
+          "Flagged": true,
           "Signature": {
             "Exposure": [
               2,
@@ -15681,7 +15883,7 @@
             2,
             2
           ],
-          "Flagged": false,
+          "Flagged": true,
           "Signature": {
             "Exposure": [
               2,
@@ -15702,7 +15904,7 @@
             2,
             2
           ],
-          "Flagged": false,
+          "Flagged": true,
           "Signature": {
             "Exposure": [
               2,
@@ -15722,7 +15924,7 @@
           "TargetExposure": [
             2
           ],
-          "Flagged": false,
+          "Flagged": true,
           "Signature": {
             "Exposure": [
               0,
@@ -15743,7 +15945,7 @@
             2,
             2
           ],
-          "Flagged": false,
+          "Flagged": true,
           "Signature": {
             "Exposure": [
               2,
@@ -15764,7 +15966,7 @@
             2,
             2
           ],
-          "Flagged": false,
+          "Flagged": true,
           "Signature": {
             "Exposure": [
               2,
@@ -15785,7 +15987,7 @@
             2,
             2
           ],
-          "Flagged": false,
+          "Flagged": true,
           "Signature": {
             "Exposure": [
               2,
@@ -15806,7 +16008,7 @@
             2,
             2
           ],
-          "Flagged": false,
+          "Flagged": true,
           "Signature": {
             "Exposure": [
               2,
@@ -15827,7 +16029,7 @@
             2,
             2
           ],
-          "Flagged": false,
+          "Flagged": true,
           "Signature": {
             "Exposure": [
               2,
@@ -15848,7 +16050,7 @@
             2,
             2
           ],
-          "Flagged": false,
+          "Flagged": true,
           "Signature": {
             "Exposure": [
               2,
@@ -15869,7 +16071,7 @@
             2,
             4
           ],
-          "Flagged": false,
+          "Flagged": true,
           "Signature": {
             "Exposure": [
               0
@@ -15889,7 +16091,7 @@
             2,
             4
           ],
-          "Flagged": false,
+          "Flagged": true,
           "Signature": {
             "Exposure": [
               0
@@ -15909,7 +16111,7 @@
             2,
             4
           ],
-          "Flagged": false,
+          "Flagged": true,
           "Signature": {
             "Exposure": [
               0
@@ -15929,7 +16131,7 @@
             2,
             4
           ],
-          "Flagged": false,
+          "Flagged": true,
           "Signature": {
             "Exposure": [
               0
@@ -15949,7 +16151,7 @@
             2,
             4
           ],
-          "Flagged": false,
+          "Flagged": true,
           "Signature": {
             "Exposure": [
               0
@@ -15969,7 +16171,7 @@
             2,
             4
           ],
-          "Flagged": false,
+          "Flagged": true,
           "Signature": {
             "Exposure": [
               0
@@ -15989,7 +16191,7 @@
             2,
             4
           ],
-          "Flagged": false,
+          "Flagged": true,
           "Signature": {
             "Exposure": [
               0
@@ -16009,7 +16211,7 @@
             2,
             4
           ],
-          "Flagged": false,
+          "Flagged": true,
           "Signature": {
             "Exposure": [
               0
@@ -16029,7 +16231,7 @@
             2,
             4
           ],
-          "Flagged": false,
+          "Flagged": true,
           "Signature": {
             "Exposure": [
               0
@@ -16049,7 +16251,7 @@
             2,
             4
           ],
-          "Flagged": false,
+          "Flagged": true,
           "Signature": {
             "Exposure": [
               0
@@ -16069,7 +16271,7 @@
             2,
             4
           ],
-          "Flagged": false,
+          "Flagged": true,
           "Signature": {
             "Exposure": [
               0
@@ -17139,7 +17341,7 @@
                 "ConsoleSystem/Arg"
               ]
             },
-            "MSILHash": "EeTGsiDTBeB9Qk9V75dU+zk74fo+uoitMLR3TdZvsJ0=",
+            "MSILHash": "YykiIdTykUbTZIviKjf0SCWDX2rTKW157zCLkBBkkSE=",
             "BaseHookName": null,
             "HookCategory": "Server"
           }
