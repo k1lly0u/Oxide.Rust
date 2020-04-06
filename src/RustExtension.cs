@@ -1,11 +1,8 @@
 ﻿using Oxide.Core;
 using Oxide.Core.Extensions;
-using Oxide.Core.Unity;
 using Oxide.Plugins;
 using System;
-using System.Linq;
 using System.Reflection;
-using UnityEngine;
 
 namespace Oxide.Game.Rust
 {
@@ -54,7 +51,7 @@ namespace Oxide.Game.Rust
             "UnityEngine.CoreModule", "UnityEngine.GridModule", "UnityEngine.ImageConversionModule", "UnityEngine.Networking", "UnityEngine.PhysicsModule", "UnityEngine.TerrainModule",
             "UnityEngine.TerrainPhysicsModule", "UnityEngine.UI", "UnityEngine.UIModule", "UnityEngine.UIElementsModule", "UnityEngine.UnityWebRequestAudioModule",
             "UnityEngine.UnityWebRequestModule", "UnityEngine.UnityWebRequestTextureModule", "UnityEngine.UnityWebRequestWWWModule", "UnityEngine.VehiclesModule",
-            "UnityEngine.WebModule"
+            "UnityEngine.WebModule", "netstandard"
         };
 
         /// <summary>
@@ -141,15 +138,6 @@ namespace Oxide.Game.Rust
         public override void OnModLoad()
         {
             CSharpPluginLoader.PluginReferences.UnionWith(DefaultReferences);
-            //Facepunch.Output.OnMessage += HandleLog;
-        }
-
-        private static void HandleLog(string message, string stackTrace, LogType logType)
-        {
-            if (!string.IsNullOrEmpty(message) && !Filter.Any(message.Contains))
-            {
-                Interface.Oxide.RootLogger.HandleMessage(message, stackTrace, logType.ToLogType());
-            }
         }
     }
 }

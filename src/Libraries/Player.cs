@@ -1,8 +1,7 @@
-﻿using Oxide.Core;
+using Oxide.Core;
 using Oxide.Core.Libraries;
 using Oxide.Core.Libraries.Covalence;
 using System;
-using System.Collections.Generic;
 using System.Globalization;
 using System.Text.RegularExpressions;
 using UnityEngine;
@@ -79,7 +78,7 @@ namespace Oxide.Game.Rust.Libraries
         /// <summary>
         /// Gets if the player is connected
         /// </summary>
-        public bool IsConnected(BasePlayer player) => BasePlayer.activePlayerList.Contains(player);
+        public bool IsConnected(BasePlayer player) => player.IsConnected;
 
         /// <summary>
         /// Returns if the player is sleeping
@@ -187,14 +186,41 @@ namespace Oxide.Game.Rust.Libraries
         /// <param name="destination"></param>
         public void Teleport(BasePlayer player, Vector3 destination)
         {
-            if (player.IsSpectating())
+            if (player.IsAlive() && !player.IsSpectating())
             {
-                return;
-            }
+                try
+                {
+                    // Dismount and remove parent, if applicable
+                    player.EnsureDismounted();
+                    player.SetParent(null, true, true);
 
-            // TODO: Check destination for potential obstructions to avoid
-            player.MovePosition(destination);
-            player.ClientRPCPlayer(null, player, "ForcePositionTo", destination);
+                    // Prevent player from getting hurt
+                    //player.SetPlayerFlag(BasePlayer.PlayerFlags.ReceivingSnapshot, true);
+                    //player.UpdatePlayerCollider(true);
+                    //player.UpdatePlayerRigidbody(false);
+                    player.EnableServerFall(true);
+
+                    // Teleport the player to position
+                    player.MovePosition(destination);
+                    player.ClientRPCPlayer(null, player, "ForcePositionTo", destination);
+
+                    // Update network group if outside current group
+                    /*if (!player.net.sv.visibility.IsInside(player.net.group, destination))
+                    {
+                        player.UpdateNetworkGroup();
+                        player.SendNetworkUpdateImmediate();
+                        player.ClearEntityQueue();
+                        player.SendFullSnapshot();
+                    }*/
+                }
+                finally
+                {
+                    // Restore player behavior
+                    //player.UpdatePlayerCollider(true);
+                    //player.UpdatePlayerRigidbody(true);
+                    player.EnableServerFall(false);
+                }
+            }
         }
 
         /// <summary>
@@ -313,12 +339,12 @@ namespace Oxide.Game.Rust.Libraries
         /// <summary>
         /// Returns all connected players
         /// </summary>
-        public List<BasePlayer> Players => BasePlayer.activePlayerList;
+        public ListHashSet<BasePlayer> Players => BasePlayer.activePlayerList;
 
         /// <summary>
         /// Returns all sleeping players
         /// </summary>
-        public List<BasePlayer> Sleepers => BasePlayer.sleepingPlayerList;
+        public ListHashSet<BasePlayer> Sleepers => BasePlayer.sleepingPlayerList;
 
         #endregion Player Finding
 

@@ -1,4 +1,4 @@
-﻿using Oxide.Core;
+using Oxide.Core;
 using Oxide.Core.Plugins;
 using Oxide.Game.Rust.Libraries;
 using System;
@@ -57,8 +57,7 @@ namespace Oxide.Plugins
                 object[] attributes = method.GetCustomAttributes(typeof(ConsoleCommandAttribute), true);
                 if (attributes.Length > 0)
                 {
-                    ConsoleCommandAttribute attribute = attributes[0] as ConsoleCommandAttribute;
-                    if (attribute != null)
+                    if (attributes[0] is ConsoleCommandAttribute attribute)
                     {
                         cmd.AddConsoleCommand(attribute.Command, this, method.Name);
                     }
@@ -69,8 +68,7 @@ namespace Oxide.Plugins
                 attributes = method.GetCustomAttributes(typeof(ChatCommandAttribute), true);
                 if (attributes.Length > 0)
                 {
-                    ChatCommandAttribute attribute = attributes[0] as ChatCommandAttribute;
-                    if (attribute != null)
+                    if (attributes[0] is ChatCommandAttribute attribute)
                     {
                         cmd.AddChatCommand(attribute.Command, this, method.Name);
                     }
@@ -88,8 +86,8 @@ namespace Oxide.Plugins
             base.HandleAddedToManager(manager);
         }
 
-        [HookMethod("OnPlayerInit")]
-        private void base_OnPlayerInit(BasePlayer player) => AddOnlinePlayer(player);
+        [HookMethod("OnPlayerConnected")]
+        private void base_OnPlayerConnected(BasePlayer player) => AddOnlinePlayer(player);
 
         [HookMethod("OnPlayerDisconnected")]
         private void base_OnPlayerDisconnected(BasePlayer player, string reason)
